@@ -50,6 +50,8 @@ TAMPER_CASES = (
      "patterns": ("usr/share/xsessions/*.desktop", "usr/share/wayland-sessions/*.desktop")},
     {"id": "profiles", "capability": "sunshine-profile-management", "kind": "remove",
      "paths": ("etc/sunshine/profiles",)},
+    {"id": "selected-profile", "capability": "desktop-profile:hyprland", "kind": "remove",
+     "paths": ("etc/sunshine/profiles/default.toml",)},
     {"id": "recovery", "capability": "recovery-checkpoints", "kind": "remove",
      "paths": ("migration/checkpoints",)},
     {"id": "migration-journal", "capability": "migration-recovery", "kind": "remove",

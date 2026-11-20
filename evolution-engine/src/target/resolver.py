@@ -108,24 +108,37 @@ def resolve_target(
     observed: ObservedState,
     target: TargetSpec,
     profiles_dir: str | Path | None = None,
+    answers: Mapping[str, str] | None = None,
 ) -> tuple[TargetSpec, list[dict[str, Any]]]:
     """Resolve the published target against a simulated or real observed state.
 
     Returns a deep copy of ``target`` specialised for this machine and the
     decisions that led there. A copy guarantees that repeated resolution with
     different observations cannot leak one machine's profile into another's.
+
+    ``answers`` maps decision ids (e.g. ``desktop-profile``) to operator
+    selections. They are consumed *during* resolution so a manually selected
+    profile contributes its packages and capabilities to the same declarative
+    target that automatic detection produces. Annotating decisions afterwards
+    would leave the plan unable to converge on the chosen state.
     """
     resolved = deepcopy(target)
     decisions: list[dict[str, Any]] = []
     profiles = load_profiles(profiles_dir)
     detections = detect_desktop_sessions(observed, profiles)
+    operator = answers or {}
 
-    _resolve_desktop(observed, resolved, profiles, detections, decisions)
+    _resolve_desktop(observed, resolved, profiles, detections, decisions, operator)
     for category in _PRESERVED_CATEGORIES:
-        _preserve_choice(observed, resolved, category, decisions)
+        _preserve_choice(observed, resolved, category, decisions, operator)
     _resolve_nix(observed, resolved, decisions)
     _resolve_storage_providers(observed, resolved, decisions)
     return resolved, decisions
+
+
+def _operator_answer(answers: Mapping[str, str], decision_id: str) -> str | None:
+    value = str(answers.get(decision_id, "")).strip()
+    return value or None
 
 
 def _resolve_storage_providers(
@@ -186,10 +199,24 @@ def _resolve_desktop(
     profiles: Mapping[str, DesktopProfile],
     detections: Mapping[str, DesktopDetection],
     decisions: list[dict[str, Any]],
+    answers: Mapping[str, str] | None = None,
 ) -> None:
     """Select a desktop profile, automatically where the evidence allows it."""
+    operator = _operator_answer(answers or {}, "desktop-profile")
     chosen, options, needs_input = choose_profile(detections, profiles.keys())
-    if needs_input:
+
+    if operator is not None:
+        # An explicit operator choice always wins over ambiguous evidence and
+        # is validated against the declared profiles before it reaches the
+        # target. Invalid values fail closed rather than silently changing the
+        # desktop, and the same validation is repeated by the CLI layer.
+        if operator not in profiles:
+            choices = ", ".join(sorted(profiles))
+            raise ValueError(
+                f"invalid value '{operator}' for desktop-profile; expected one of {choices}"
+            )
+        chosen, needs_input = operator, False
+    elif needs_input:
         details = ", ".join(options) if options else "none of the supported profiles"
         decisions.append(
             _decision(
@@ -232,7 +259,9 @@ def _resolve_desktop(
 
     detection = detections.get(chosen)
     evidence = list(detection.evidence) if detection else []
-    if detection is not None and detection.is_default:
+    if operator is not None:
+        reason = f"Operator selected desktop profile '{chosen}'."
+    elif detection is not None and detection.is_default:
         reason = f"'{chosen}' is the configured default desktop; preserving it."
     elif detection is not None:
         reason = f"Exactly one supported desktop ('{chosen}') was detected with sufficient confidence."
@@ -389,11 +418,37 @@ def _preserve_choice(
     target: TargetSpec,
     category: str,
     decisions: list[dict[str, Any]],
+    answers: Mapping[str, str] | None = None,
 ) -> None:
     """Keep an existing compatible choice, or ask one question if incompatible."""
     supported = _supported_choices(target, category)
     if not supported:
         return
+
+    operator = _operator_answer(answers or {}, f"{category}-choice")
+    if operator is not None:
+        # Operator answers must produce the same declarative package-set change
+        # as an automatically preserved choice, otherwise the planner cannot
+        # converge on the selected backend. Validate against the published
+        # choices so a typo cannot install an unknown package set.
+        if operator not in supported:
+            choices = ", ".join(sorted(supported))
+            raise ValueError(
+                f"invalid value '{operator}' for {category}-choice; expected one of {choices}"
+            )
+        target.package_sets[category] = _dedupe(list(supported[operator]))
+        decisions.append(
+            _decision(
+                f"{category}-choice",
+                category,
+                selected=operator,
+                options=[operator],
+                action="select",
+                reason=f"Operator selected the {category} choice '{operator}'.",
+            )
+        )
+        return
+
     found = _observed_choices(observed, category)
     if not found:
         return

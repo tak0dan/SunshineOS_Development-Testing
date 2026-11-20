@@ -262,6 +262,39 @@ def _v_audio_pulse(root: Path, ex: Execute):
     return ok, [out.strip()], "pulseaudio user service active"
 
 
+def _v_desktop_profile(root: Path, ex: Execute, state_root: Path | None = None,
+                       profile_id: str = "") -> tuple[bool, list[str], str]:
+    """Verify a selected desktop profile is actually materialised in config.
+
+    ``desktop-profile:<id>`` is a capability the resolver adds when a profile
+    is chosen (automatically or by operator answer). The declarative profile
+    tree is the evidence: the default profile file must exist and name the
+    selected profile, or a dedicated profile file must be present.
+    """
+    roots = [Path(root)]
+    if state_root is not None and Path(state_root) != Path(root):
+        roots.append(Path(state_root))
+    candidates = [
+        "etc/sunshine/profiles/default.toml",
+        f"etc/sunshine/profiles/{profile_id}.toml",
+    ]
+    found: list[str] = []
+    for base in roots:
+        for rel in candidates:
+            p = base / rel
+            if not p.is_file():
+                continue
+            text = ""
+            try:
+                text = p.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                pass
+            if not profile_id or profile_id in text or rel.endswith(f"/{profile_id}.toml"):
+                found.append(str(p))
+    return bool(found), (found or [str(Path(root) / candidates[0])]), \
+        f"desktop profile '{profile_id}' configuration is present"
+
+
 @_register("migration-recovery")
 def _v_migration_recovery(root: Path, ex: Execute, state_root: Path | None = None):
     ok, paths = _any_path(root, "migration/journal", "var/lib/sunshine/migration/journal",
@@ -276,14 +309,21 @@ def validate_capability(capability: str, root: str | Path = "/", execute: Option
     ex = execute or _default_execute
     p = Path(root)
     probe = _CAPABILITY_PROBES.get(capability)
-    if probe is None:
+    profile_id: str | None = None
+    if probe is None and capability.startswith("desktop-profile:"):
+        profile_id = capability.split(":", 1)[1]
+    if probe is None and profile_id is None:
         # Fall back to the discovery-derived capability set, but mark it as weak evidence.
         if observed is not None and capability in observed.capabilities:
             return ValidationReport(capability, True, ["observed-capability"], "derived from discovery only; no active probe")
         return ValidationReport(capability, False, [], f"no validator for capability '{capability}'")
     try:
         try:
-            ok, evidence, detail = probe(p, ex, Path(state_root) if state_root is not None else None)
+            if profile_id is not None:
+                ok, evidence, detail = _v_desktop_profile(
+                    p, ex, Path(state_root) if state_root is not None else None, profile_id)
+            else:
+                ok, evidence, detail = probe(p, ex, Path(state_root) if state_root is not None else None)
         except TypeError:  # probes that only need the system root keep their 2-arg form
             ok, evidence, detail = probe(p, ex)
     except Exception as exc:  # a broken probe must fail closed, not crash the engine

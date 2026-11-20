@@ -76,9 +76,13 @@ def _discover(root: str, execute=None) -> ObservedState:
     return discover(root=root, execute=execute)
 
 
-def _resolve(root: str, observed: ObservedState):
+def _resolve(root: str, observed: ObservedState, answers: Optional[dict[str, str]] = None):
     target = load_target()
-    return resolve_target(observed, target, profiles_dir=Path(__file__).resolve().parent / "target" / "profiles")
+    return resolve_target(
+        observed, target,
+        profiles_dir=Path(__file__).resolve().parent / "target" / "profiles",
+        answers=answers,
+    )
 
 
 def _contract_validation(published_target) -> list[str]:
@@ -163,22 +167,41 @@ def cmd_check(root: str, execute=None, trust=None) -> int:
     return 0
 
 
-def cmd_plan(root: str, execute=None, trust=None) -> int:
+def _parse_decision_answers(answers: Optional[list[str]]) -> dict[str, str]:
+    """Parse ``--decide id=value`` strings into a decision-id map.
+
+    The same map is handed to the resolver (which applies the answer to the
+    declarative target) and to the decision annotator, so ``--plan`` and
+    ``--apply`` cannot disagree about what an operator selected.
+    """
+    parsed: dict[str, str] = {}
+    for answer in answers or []:
+        if "=" not in answer:
+            raise ValueError(f"invalid decision '{answer}'; expected id=value")
+        key, value = answer.split("=", 1)
+        key, value = key.strip(), value.strip()
+        if not key or not value:
+            raise ValueError(f"invalid decision '{answer}'; expected id=value")
+        parsed[key] = value
+    return parsed
+
+
+def cmd_plan(root: str, execute=None, trust=None, decide: Optional[list[str]] = None) -> int:
     observed = _discover(root, execute)
-    target, decisions = _resolve(root, observed)
+    target, decisions = _resolve(root, observed, _parse_decision_answers(decide))
+    decisions = _apply_decisions(decisions, decide or [])
     plan = build_plan(observed, target, decisions=decisions)
     print(_json(plan))
     return 0
 
 
 def _apply_decisions(decisions: list[dict], answers: list[str]) -> list[dict]:
-    """Apply ``--decide id=value`` answers to unresolved decisions."""
-    parsed: dict[str, str] = {}
-    for answer in answers:
-        if "=" not in answer:
-            raise ValueError(f"invalid decision '{answer}'; expected id=value")
-        key, value = answer.split("=", 1)
-        parsed[key.strip()] = value.strip()
+    """Annotate decisions that the resolver settled from operator answers.
+
+    Resolution itself consumes the answers (see ``resolve_target``); this only
+    normalises the record for callers that inspect ``plan.decisions``.
+    """
+    parsed = _parse_decision_answers(answers)
     for decision in decisions:
         answer = parsed.get(str(decision.get("id", "")))
         if answer is None:
@@ -212,7 +235,7 @@ def cmd_apply(root: str, state_root: str, resume: bool, dry_run: bool,
         print("Unsupported source state:\n" + _json(compatibility.to_dict()),
               file=sys.stderr)
         return 3
-    target, decisions = _resolve(root, observed)
+    target, decisions = _resolve(root, observed, _parse_decision_answers(decide))
     decisions = _apply_decisions(decisions, decide or [])
     plan = build_plan(observed, target, decisions=decisions)
     unresolved = [d for d in plan.decisions if d.get("requires_user_input")]
@@ -342,7 +365,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     if a.check:
         return cmd_check(root, execute, trust)
     if a.plan:
-        return cmd_plan(root, execute, trust)
+        return cmd_plan(root, execute, trust, a.decide)
     if a.verify:
         return cmd_verify(root, execute, trust, a.state_root)
     if a.apply:

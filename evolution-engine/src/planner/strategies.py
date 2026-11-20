@@ -13,6 +13,7 @@ machine and an older Sunshine OS installation.
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, replace
 from typing import Callable, Iterable, Optional
@@ -508,8 +509,15 @@ def plan_desktop_integration(ctx: ComponentContext) -> list[Operation]:
         # to finish the chosen app/profile setup; there is no
         # sunshine-profiles.service, and enabling a unit no package provides
         # fails on a real system.
+        selected = [p.split(":", 1)[1] for p in ctx.spec.provides
+                    if p.startswith("desktop-profile:")]
+        profile_content = json.dumps(
+            {"component": ctx.spec.id, "managed": True, "profiles": selected},
+            sort_keys=True, indent=2,
+        ) + "\n"
         emitted.append(ops.create_configuration(
             "etc/sunshine/profiles/default.toml",
+            content=profile_content,
             capabilities=["sunshine-profile-management"],
             component=ctx.spec.id,
             lifecycle=ctx.lifecycle,
