@@ -75,7 +75,11 @@ pub fn verify_detached(
     write_secret(&payload_path, payload)?;
     write_secret(&sig_path, &signature)?;
 
+    // Use an empty GNUPGHOME so host configuration (notably keyboxd) cannot
+    // cause --keyring to be ignored. The dedicated keyring is the only trust
+    // input; nothing is imported from the user's default home.
     let output = Command::new(gpg)
+        .env("GNUPGHOME", &dir)
         .args([
             "--no-default-keyring",
             "--keyring",

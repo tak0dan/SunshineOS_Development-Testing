@@ -4,6 +4,7 @@ from __future__ import annotations
 import datetime
 import hashlib
 import json
+import os
 import subprocess
 import tempfile
 from dataclasses import dataclass, field
@@ -446,7 +447,6 @@ def gpg_verifier(keyring: str | Path, gpg: str = "gpg") -> Verifier:
     keyring_path = Path(keyring).resolve()
 
     def verify(fingerprint: str, payload: bytes, signature: str) -> bool:
-        del fingerprint  # gpg selects the key from the signature
         with tempfile.TemporaryDirectory(prefix="sunshine-trust-") as tmp:
             tmpdir = Path(tmp)
             payload_path = tmpdir / "payload"
@@ -456,13 +456,29 @@ def gpg_verifier(keyring: str | Path, gpg: str = "gpg") -> Verifier:
                 sig_path.write_bytes(bytes.fromhex(signature))
             except ValueError:
                 return False
+            # An empty GNUPGHOME prevents host configuration (notably keyboxd)
+            # from causing --keyring to be ignored. Only the dedicated keyring
+            # may establish trust.
+            env = dict(os.environ)
+            env["GNUPGHOME"] = tmp
             result = subprocess.run(
                 [gpg, "--no-default-keyring", "--keyring", str(keyring_path),
-                 "--batch", "--verify", str(sig_path), str(payload_path)],
+                 "--batch", "--status-fd", "1", "--verify",
+                 str(sig_path), str(payload_path)],
                 capture_output=True,
                 text=True,
                 check=False,
+                env=env,
             )
-            return result.returncode == 0
+            if result.returncode != 0:
+                return False
+            expected = "".join(fingerprint.split()).upper()
+            for line in result.stdout.splitlines():
+                parts = line.split()
+                if (parts[:2] == ["[GNUPG:]", "VALIDSIG"]
+                        and any("".join(part.split()).upper() == expected
+                                for part in parts[2:])):
+                    return True
+            return False
 
     return verify
