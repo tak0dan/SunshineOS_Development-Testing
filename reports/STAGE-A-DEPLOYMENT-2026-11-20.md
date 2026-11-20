@@ -69,8 +69,10 @@ documented and remains removed by post-install before first boot.
   - `packages/sunshine-update/` — PKGBUILD, vendored canonical engine, Rust bootstrap, signed
     NEW-pinned trust material, polkit action, tmpfiles, wrapper, provisioning script and docs.
   - Installer/post-install hardening described above.
-- Built package (release asset candidate, not committed):
-  `packages/sunshine-update/sunshine-update-0.9.0-1-x86_64.pkg.tar.zst`.
+- Built package published as a DevTesting release asset:
+  `tak0dan/SunshineOS_Development-Testing` tag `sunshine-update-0.9.0-1`,
+  file `sunshine-update-0.9.0-1-x86_64.pkg.tar.zst`, SHA-256
+  `c248e20f27a1e1b1e2499af20a1a1bdf3651af3928503c63f3556ce9a5ca9efb`.
 - This report and the two verifier fixes are published in `SunshineOS_Development-Testing/main`.
 
 ## Results
