@@ -1,0 +1,95 @@
+# Declarative evolutionary scheme for SunshineOS.
+#
+# Milestone 0   = current vanilla Arch Linux (frozen baseline epoch).
+# Milestone 0.9 = current SunshineOS, which does not yet ship the migration
+#                 mechanism (the "almost first milestone").
+# Milestone 1+  = every subsequent Arch-based SunshineOS release.
+#
+# This file is knowledge, not an execution itinerary. The resolver produces a
+# complete target; the planner computes operations from an observed inventory.
+format_version = 1
+baseline_epoch = "arch-2026-baseline-01"
+engine_version = "ME12"
+inventory_schema = "INV7"
+evolution_schema = "EVS4"
+transition_catalog = "TC18"
+current = "0.9"
+
+[[aliases]]
+name = "vanilla-arch"
+version = "0"
+
+[[aliases]]
+name = "arch-2026-baseline-01"
+version = "0"
+
+[[aliases]]
+name = "sunshine-2026.1"
+version = "0.9"
+
+[[aliases]]
+name = "old-sunshine"
+version = "0.9"
+
+[[milestone]]
+id = "arch-baseline"
+version = "0"
+label = "Vanilla Arch Linux (frozen 2026 baseline epoch)"
+predecessor = ""
+target_release = "arch-2026"
+rollback = "none"
+invariants = ["arch-foundation", "pacman", "verified-repository"]
+
+[[milestone.post_milestone]]
+id = "baseline-inventory"
+command = "true"
+description = "Record baseline inventory before any transformation"
+
+[[milestone]]
+id = "sunshine-current"
+version = "0.9"
+label = "Current SunshineOS (migration mechanism not yet shipped)"
+predecessor = "0"
+target_release = "sunshine-2026.1"
+rollback = "checkpoint"
+invariants = ["configuration-ownership", "kernel-fallback", "recovery-checkpoints", "desktop-profiles"]
+
+[[milestone.pre_upgrade]]
+id = "verify-trust"
+command = "true"
+required = true
+description = "Verify Stage A trust root and artifact signatures before transformation"
+
+[[milestone.post_milestone]]
+id = "verify-convergence"
+command = "true"
+required = true
+description = "Run the --verify equivalent after reconciliation"
+
+[[milestone.on_failure]]
+id = "restore-current-checkpoint"
+command = "true"
+required = true
+description = "Restore the checkpoint taken before crossing into current SunshineOS"
+
+[[milestone]]
+id = "sunshine-migration-1"
+version = "1.0"
+label = "First Arch-based SunshineOS release with evolutionary migration"
+predecessor = "0.9"
+target_release = "sunshine-2026.2"
+rollback = "checkpoint"
+published = false
+invariants = ["evolution-ledger-immutable", "semantic-transitions", "qualified-release-gate"]
+
+[[milestone.pre_upgrade]]
+id = "blessed-update-guard"
+command = "true"
+required = true
+description = "Refuse upgrades that cross an unpublished or unqualified milestone"
+
+[[milestone.on_failure]]
+id = "restore-checkpoint"
+command = "true"
+required = true
+description = "Restore the checkpoint taken before this milestone"
