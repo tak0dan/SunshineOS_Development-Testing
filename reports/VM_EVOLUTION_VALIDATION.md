@@ -42,9 +42,12 @@ extracted, and the following checks were run.
   password; an earlier note in the project history naming a different sudo
   password was stale. No credential value is recorded here.
 - The first convergence pass performed mutations; a later pass still showed
-  `changed true`, and the following pass showed `changed false`. The engine is
-  idempotent once converged. This two-pass observation should be investigated in
-  a dedicated fixture regression if it recurs on a clean snapshot.
+  `changed true`, and the following pass showed `changed false`. Follow-up on a
+  clean state root in the same VM showed `changed true` on the first apply and
+  `changed false` on both the second and third applies, so the earlier two-pass
+  result came from the intervening tamper/restore and rollback-injection tests,
+  not from steady-state convergence. `tests/test_cli.py` now asserts three
+  consecutive applies: first may change, later ones must be no-ops.
 - The checkpoint-tamper guard is now demonstrated both in the unit suite and in
   the live VM via an injected `checkpoint_verify_fn`.
 
