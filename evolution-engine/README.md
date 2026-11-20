@@ -27,8 +27,13 @@ The engine never asks "which Sunshine version is installed?" as its primary ques
 ## Pipeline
 
 ```
-Discover → Resolve target → Plan → Preflight → Execute (journaled) → Validate → Commit
+Stage A trust → Discover → Resolve target → Plan → Preflight → Execute (journaled) → Validate → Commit
 ```
+
+Stage A is optional in the offline test CLI but mandatory in production. Supply
+`--trust-index`, `--trust-policy` and `--trust-keyring` to verify signed metadata, artifact
+digests, chained key rotation, protocol compatibility and the signed Core handoff before any
+discovery or mutation. See `docs/SPEC_ALIGNMENT.md` for the remaining Rust-bootstrap gap.
 
 ## Layout
 
@@ -37,15 +42,22 @@ src/
   engine.py            orchestrator + CLI
   core.py              shared typed models (facts, target, ops, plan, journal)
   discovery/           capability & system discovery
-  target/              target manifest + profile resolution
+  target/              target manifest, profiles, component contracts
+  trust/               Stage A: signed index, rotation, artifacts, handoff
+  components.py        component contract loader/validator
+  adapters.py          signed, versioned Rust adapter contracts
+  fixtures.py          offline host-independent CLI executor
   planner/             DAG planner, typed operations, conflicts
   executor/            transactional executor, primitives, recovery
   validation/          capability and system validators
-tests/                 unit + integration + idempotency tests
+tests/                 unit + integration + idempotency + trust tests
 fixtures/              simulated source states (clean Arch, old Sunshine, etc.)
 docs/                  architecture, security, testing, threat model
 ```
 
 ## Status
 
-Iteration 1 — foundational engine. See `docs/ARCHITECTURE.md` and `docs/TESTING.md`.
+Foundational engine with 106 offline tests, Stage A protocol verification, signed adapter
+contracts, source compatibility profiles, host-independent fixture CLI and documented break/fix
+cycles. The production Rust bootstrap is the next architecture step. See `docs/ARCHITECTURE.md`,
+`docs/SPEC_ALIGNMENT.md`, `docs/TESTING.md` and `../reports/evolution-engine-breakfix-cycle.md`.

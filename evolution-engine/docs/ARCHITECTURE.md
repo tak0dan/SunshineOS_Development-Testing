@@ -37,9 +37,10 @@ lifecycles.
 ## Pipeline stages
 
 ### A — Bootstrap and trust verification
-Verify local engine version, repository signatures, artifact hashes, compatibility. No
-transformation begins before trust succeeds. (Bootstrap/trust crate is a future Rust component;
-the Python engine models the interface.)
+Verify local engine version, repository signatures, artifact hashes, chained key rotation,
+protocol compatibility and the signed Core handoff. No transformation begins before trust
+succeeds. `src/trust` implements and tests the protocol; the production Rust bootstrap crate is
+still pending (see `SPEC_ALIGNMENT.md`).
 
 ### B — Discovery
 Inspect distribution, packages, kernel, boot, storage, services, network, audio, desktop, users,
@@ -82,7 +83,13 @@ fail closed.
 `GenerateInitramfs`, `InstallBootEntry`, `CreateCheckpoint`, `ValidateCapability`.
 
 Migration manifests never contain arbitrary shell scripts. Complex cases use versioned signed
-adapters running under the executor's authorization, journaling and validation model.
+Rust adapters running under the executor's authorization, journaling and validation model.
+`src/adapters.py` rejects unverified artifacts, forbidden permissions and parameter keys that
+could smuggle a shell command; actual adapter process sandboxing remains a gap.
+
+Component contracts in `src/target/contracts/*.toml` declare capabilities, dependencies, managed
+paths and lifecycle. They are validated against the published target before every apply, so the
+planner never relies on a component's internals.
 
 ## Arch foundation rules
 
@@ -121,4 +128,17 @@ with a precise explanation.
 ## Idempotency
 
 Running the engine twice against an unchanged target must produce no mutating operations — only
-validation. This is a fundamental property and is covered by tests.
+validation. This is a fundamental property and is covered by tests, including a CLI-level
+two-apply fixture test with a persistent sandbox.
+
+## Stale-plan protection
+
+A plan contains a fingerprint of the state it was built from. If discovery changes before
+execution, the engine aborts with `stale plan` and runs no command. This closes the gap between
+a reviewed plan and a mutated machine.
+
+## Host-independent fixtures
+
+`--fixture NAME` swaps both the filesystem root and the command executor. It never calls the host
+`subprocess`, never uses the live `/var/lib/sunshine` state root, and unknown commands fail closed.
+This makes test and demo output reproducible on any machine.

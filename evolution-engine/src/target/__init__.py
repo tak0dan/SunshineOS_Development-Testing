@@ -16,5 +16,12 @@ questions. All returned data is declarative; the planner decides operations.
 """
 from .manifest import load_target
 from .resolver import resolve_target
+from .compatibility import classify_source, preflight_source, CompatibilityReport
 
-__all__ = ["load_target", "resolve_target"]
+__all__ = [
+    "load_target",
+    "resolve_target",
+    "classify_source",
+    "preflight_source",
+    "CompatibilityReport",
+]

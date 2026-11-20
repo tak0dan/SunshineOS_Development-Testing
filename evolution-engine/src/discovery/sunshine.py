@@ -107,7 +107,9 @@ def _collect_config(state: ObservedState, root: str) -> bool:
     confidence = Confidence.HIGH if files else (Confidence.MEDIUM if present else Confidence.LOW)
     status = Status.CONFIGURED if files else (Status.INSTALLED if present else Status.ABSENT)
     observe(state, "sunshine.config", "sunshine-configuration", confidence, status, evidence)
-    return bool(present)
+    # An empty directory is not configuration.  Counting it as a marker made a
+    # clean Arch machine look like a partial Sunshine installation.
+    return bool(files)
 
 
 def _collect_state_dir(state: ObservedState, root: str) -> bool:
@@ -124,7 +126,36 @@ def _collect_state_dir(state: ObservedState, root: str) -> bool:
     confidence = Confidence.HIGH if files else (Confidence.MEDIUM if present else Confidence.LOW)
     status = Status.CONFIGURED if files else (Status.INSTALLED if present else Status.ABSENT)
     observe(state, "sunshine.state", "sunshine-state", confidence, status, evidence)
-    return bool(present)
+    _read_committed_generation(state, root)
+    # An empty directory is not persisted state.  See _collect_config above.
+    return bool(files)
+
+
+def _read_committed_generation(state: ObservedState, root: str) -> None:
+    """Read the repository generation last committed on this machine.
+
+    The repository index is versioned independently of releases and component
+    schemas.  Knowing the committed generation lets the planner reject a
+    downgrade instead of silently applying an older target.
+    """
+    for relative in (
+        "/var/lib/sunshine/state/system.toml",
+        "/var/lib/sunshine/state/migration.toml",
+    ):
+        text = read_file(root, relative)
+        if not text:
+            continue
+        for line in text.splitlines():
+            if "=" not in line or line.lstrip().startswith("#"):
+                continue
+            key, _, value = line.partition("=")
+            if key.strip() != "repository_generation":
+                continue
+            try:
+                state.repository_generation = int(value.strip())
+                return
+            except ValueError:
+                continue
 
 
 def _collect_schemas(state: ObservedState, root: str) -> bool:

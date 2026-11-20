@@ -444,7 +444,22 @@ def transfer_ownership(op: Operation, context: ExecutionContext) -> Result:
     if context.dry_run:
         return Result(True, output=f"[dry-run] would transfer {resource} to {new_owner}", changed=False,
                       metadata={"verify": _verify("ownership", path=rel, expected=True)})
-    write_json(context.root / rel, record)
+    target = context.root / rel
+    previous = {}
+    if target.exists():
+        try:
+            previous = json.loads(target.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            previous = {}
+    unchanged = (
+        previous.get("resource") == resource and
+        previous.get("from") == old_owner and
+        previous.get("to") == new_owner
+    )
+    if unchanged:
+        return Result(True, output=f"ownership of {resource} already assigned to {new_owner}",
+                      changed=False, metadata={"verify": _verify("ownership", path=rel, expected=True)})
+    write_json(target, record)
     return Result(True, output=f"transferred ownership of {resource} to {new_owner}", changed=True,
                   metadata={"verify": _verify("ownership", path=rel, expected=True)})
 

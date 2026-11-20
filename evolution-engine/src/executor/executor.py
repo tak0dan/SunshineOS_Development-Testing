@@ -7,10 +7,10 @@ from typing import Any, Callable, Optional
 
 try:
     from ..core import (Confidence, JournalEntry, Observation, ObservedState, OpType,
-                        Operation, Plan, Status)
+                        Operation, Plan, Status, state_fingerprint)
 except ImportError:  # pragma: no cover
     from core import (Confidence, JournalEntry, Observation, ObservedState, OpType,  # type: ignore
-                      Operation, Plan, Status)
+                      Operation, Plan, Status, state_fingerprint)
 
 from .journal import Journal, JournalState, default_execute
 from .primitives import (BOOT_OPS, ExecutionContext, Result, _packages, _unit,
@@ -247,6 +247,20 @@ def execute_plan(plan: Plan, state_root: str | Path, execute: Optional[Execute] 
         repository_generation=str((plan.target or {}).get(
             "repository_generation", (plan.source or {}).get("repository_generation", ""))),
     )
+
+    # A plan is only valid for the machine it was built from.  When a caller
+    # supplies current discovery data, a mismatch means state changed after
+    # planning and nothing may be executed against that stale intent.
+    planned_fingerprint = str((plan.source or {}).get("observed_fingerprint", ""))
+    if observed is not None and planned_fingerprint:
+        current_fingerprint = state_fingerprint(observed)
+        if current_fingerprint != planned_fingerprint:
+            return _abort(
+                plan, None, "bootstrap",
+                f"stale plan: observed state changed since planning "
+                f"({planned_fingerprint} -> {current_fingerprint}); re-discover and replan",
+                result, context, journal=journal, write_journal=not dry_run,
+            )
 
     try:
         ordered = topological_order(plan.operations)

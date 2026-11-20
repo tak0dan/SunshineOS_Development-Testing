@@ -210,3 +210,151 @@ These are safety properties, not bugs; tests confirm they keep working:
    bootloaders) and confirm the decision gate asks rather than guesses.
 4. Run the engine against a minimal Arch ISO with no `/etc/sunshine`, then
    re-run it to prove convergence is idempotent.
+
+---
+
+## Cycle 12 — fixture CLI used the real host as an oracle
+
+**Symptom.** `sunshine-evolve --fixture clean-arch --check` reported the developer's host
+distribution and package set in some paths, even though the filesystem root was a fixture.
+
+**Root cause.** Only discovery's filesystem reads were redirected. External commands still went
+through `subprocess.run`, so a fake Arch tree was combined with real host command output.
+
+**Fix.** `src/fixtures.py` now owns a reusable `FixtureExecutor`. The CLI injects it into both
+discovery and execution; unknown commands fail instead of silently falling back to the host.
+
+**Regression guard.** `tests/test_cli.py::test_plan_is_faithful_without_host_subprocess_leakage`
+and `test_check_uses_fixture_distribution_not_host`.
+
+## Cycle 13 — dry-run apply returned exit code 1
+
+**Symptom.** A successful offline dry-run printed `status: dry_run` but `main()` returned 1.
+
+**Root cause.** The success status whitelist used old names (`completed`, `no-op`) that the
+executor never emits; it now emits `success` or `dry_run`.
+
+**Fix.** CLI accepts `success`, `no-op` and `dry_run`.
+
+**Regression guard.** `test_dry_run_apply_completes_offline` and
+`test_real_apply_and_repeat_are_idempotent`.
+
+## Cycle 14 — `--fixture` and `--root /` looked equivalent
+
+**Symptom.** Passing both flags could be read as "fixture filesystem with live host commands",
+and fixture `--apply` defaulted to the real `/var/lib/sunshine` state root.
+
+**Root causes.** The mutual-exclusion check compared against a mutable default, and argparse's
+error path raised `SystemExit` in in-process CLI tests. The sandbox default was unsafe.
+
+**Fix.** `--root` defaults to `None`; fixture mode rejects an explicit root with a normal exit 2.
+Fixture apply refuses the live state root unless the operator passes an explicit sandbox.
+
+**Regression guard.** `test_fixture_and_root_are_mutually_exclusive`,
+`test_fixture_apply_refuses_live_state_root`.
+
+## Cycle 15 — detected desktops created a dependency cycle
+
+**Symptom.** `--fixture arch-hyprland --plan` failed with
+`component dependency cycle detected among: desktop_integration`.
+
+**Root cause.** Resolver appended a profile's `required_capabilities` to the component's
+`requires` list, even though those capabilities are also in the component's own `provides`.
+
+**Fix.** Requirements already provided by the same component are filtered out. The reasoning is
+documented in `src/target/resolver.py`.
+
+**Regression guard.** `test_profile_capabilities_do_not_create_self_dependency`; all desktop
+fixtures now plan and dry-run.
+
+## Cycle 16 — contradictory bootloaders were silently resolved
+
+**Symptom.** A machine with GRUB and systemd-boot evidence inherited whichever observation was
+iterated first.
+
+**Root cause.** `_observed_choice()` returned a single first match without checking whether other
+observations disagreed.
+
+**Fix.** `_observed_choices()` collects all distinct signals; `_preserve_choice()` emits one
+focused question when they disagree or when one is unsupported.
+
+**Regression guard.** `test_conflicting_bootloaders_ask_one_question` and the contradictory-state
+tests in `tests/test_target.py`.
+
+## Cycle 17 — PipeWire compatibility looked like PulseAudio
+
+**Symptom.** A normal PipeWire system produced a false "Which audio should Sunshine use?" decision
+because `pactl info` succeeded through `pipewire-pulse`.
+
+**Root cause.** Discovery treated `pactl` output as evidence of a legacy PulseAudio daemon.
+
+**Fix.** When PipeWire is present and the only Pulse evidence mentions PipeWire compatibility, the
+Pulse observation is downgraded and recorded as a compatibility layer, not a competing backend.
+
+**Regression guard.** Full suite plus `tests/test_integration.py` compatibility assertions.
+
+## Cycle 18 — no tamper check existed between plan and execute
+
+**Symptom.** A plan built against one machine state could be executed after packages changed.
+
+**Fix.** `state_fingerprint()` stores a stable digest in `Plan.source`. When current discovery is
+supplied, a mismatch aborts with `stale plan` before any command runs.
+
+**Regression guard.** `test_stale_plan_is_refused_after_state_changes` asserts zero commands run.
+
+## Cycle 19 — trust and component metadata were only documentation
+
+**Symptom.** The spec required signed metadata, chained rotation, handoff verification and
+component contracts, but the engine had no typed implementation to test.
+
+**Fix.** Added `src/trust` (signed index, artifact digests, chained key rotation, self-signed-key
+rejection, protocol/core compatibility, signed handoff), `src/components` (contracts validated
+against target) and `src/adapters` (Rust-only signed adapters with narrow permissions and typed
+parameters). CLI accepts `--trust-index`, `--trust-policy` and `--trust-keyring` and blocks all
+commands when Stage A fails.
+
+**Regression guard.** `tests/test_trust.py` and `tests/test_components.py`, plus
+`test_failed_stage_a_blocks_apply_before_discovery`.
+
+## Cycle 20 — repeated apply changed files again
+
+**Symptom.** A second real fixture apply reported `changed: true`, violating the five-year
+convergence contract.
+
+**Root causes.** Ownership records were rewritten with a fresh timestamp, and the fixture executor
+did not remember installed packages between CLI invocations.
+
+**Fix.** Ownership transfer is now content-addressed and reuses an identical record. Fixture
+executor state is persisted inside the caller's sandbox, and dry-run/read-only commands get no
+sandbox state at all.
+
+**Regression guard.** `test_real_apply_and_repeat_are_idempotent` and
+`test_dry_run_does_not_create_state`.
+
+## Current suite
+
+```
+Ran 106 tests
+OK
+```
+
+Alignment with the original specification, including the remaining Rust bootstrap gap, is tracked
+in `evolution-engine/docs/SPEC_ALIGNMENT.md`.
+
+## Cycle 21 — live VM exposed false bootloader/network conflicts
+
+**Symptom.** After stricter contradiction detection, the live VM reported
+`Conflicting bootloader choices: grub, refind` and `Conflicting network choices:
+networkmanager, systemd-networkd`, blocking dry-run with two extra questions.
+
+**Root cause.** Installed-but-unused packages were treated as equally strong evidence as running
+backends. GRUB had an EFI entry and configuration; rEFInd was only installed. NetworkManager had
+active units; systemd-networkd was only installed.
+
+**Fix.** Observations now carry a signal-strength tier: running/configured + corroborating
+evidence outranks mere installation. Only equally strong signals compete; a weaker alternative is
+recorded but does not force a user decision.
+
+**Regression guard.**
+`test_installed_only_alternative_does_not_create_conflict`; live VM check now reports a single
+legitimate desktop-profile question instead of three.

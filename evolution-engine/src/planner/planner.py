@@ -13,7 +13,8 @@ from dataclasses import fields, is_dataclass, replace
 from enum import Enum
 from typing import Any, Iterable, Optional
 
-from ..core import Lifecycle, ObservedState, OpType, Operation, Plan, TargetSpec
+from ..core import (Lifecycle, ObservedState, OpType, Operation, Plan, TargetSpec,
+                    state_fingerprint)
 from . import operations as ops
 from .graph import DependencyGraph
 from .strategies import _detect_presence, build_context, plan_component
@@ -201,7 +202,19 @@ def plan(
     if not isinstance(target, TargetSpec):
         raise ValueError("plan() expects a TargetSpec")
 
+    # Reject rollback to an older repository generation unless an explicitly
+    # authorised recovery procedure clears the committed marker.  A target is
+    # never allowed to move the machine backwards silently.
+    committed = getattr(observed, "repository_generation", 0) or 0
+    if committed and target.repository_generation and target.repository_generation < committed:
+        raise ValueError(
+            f"repository rollback refused: machine has committed generation "
+            f"{committed}, target offers {target.repository_generation}; "
+            "use an authorised recovery procedure to roll back"
+        )
+
     source = _freeze(observed)
+    source["observed_fingerprint"] = state_fingerprint(observed)
     target_snapshot = _freeze(target)
     deltas = capability_deltas(observed, target)
     active = _active_components(observed, target)

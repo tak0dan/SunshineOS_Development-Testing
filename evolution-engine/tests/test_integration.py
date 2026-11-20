@@ -32,6 +32,8 @@ class FakeExec:
     def __call__(self, cmd: str) -> tuple[int, str, str]:
         self.commands.append(cmd)
         c = cmd.strip()
+        if c == "pacman -Q":
+            return 0, "base 1.1-1\nsystemd 255.8-1\npacman 7.1.0-1\nlinux 6.10.1-arch1-1\ngrub 2.12-1\n", ""
         if c.startswith("pacman -Q "):
             return 0, "1.0-1", ""
         if c.startswith("pacman -Qqdt"):
@@ -46,7 +48,13 @@ class FakeExec:
             return 0, "Pacman v7.1.0", ""
         if c.startswith("uname"):
             return 0, "x86_64" if " -m" in c else "6.10.1-arch1-1", ""
-        return 0, "", ""
+        if c == "cat /proc/1/comm":
+            return 0, "systemd", ""
+        if c.startswith("systemctl --version"):
+            return 0, "systemd 255 (255.8-1-arch)", ""
+        # Unknown commands fail: a fake that succeeds for everything makes a
+        # clean Arch fixture look like it has `sunshine --version` available.
+        return 1, "", "command not available in fixture"
 
 
 def _fixture_pipeline(name: str, packages: dict[str, str] | None = None):
@@ -160,6 +168,75 @@ class IntegrationTests(unittest.TestCase):
         choice = _observed_choice(state, "network")
         self.assertIsNotNone(choice)
         self.assertEqual(choice[0], "networkmanager")
+
+    def test_source_profiles_are_classified_per_fixture(self):
+        from src.target.compatibility import classify_source
+        expected = {
+            "clean-arch": "arch-standard",
+            "arch-plasma": "arch-standard",
+            "old-sunshine": "sunshine-installed",
+        }
+        for fixture, profile in expected.items():
+            state, _, _, _, _ = _fixture_pipeline(fixture)
+            report = classify_source(state)
+            self.assertEqual(report.profile, profile, fixture)
+            self.assertTrue(report.supported, f"{fixture}: {report.blockers}")
+
+    def test_stale_plan_is_refused_after_state_changes(self):
+        """A plan built for one machine must not execute against another state."""
+        import tempfile
+        state, target, plan, decisions, fx = _fixture_pipeline("clean-arch")
+        state.packages["newly-installed-package"] = "9.9-1"  # state changed after planning
+        fx.commands.clear()  # discovery commands happened before planning
+
+        result = execute_plan(plan, Path(tempfile.mkdtemp()), fx,
+                              resume=True, observed=state)
+
+        self.assertEqual(result.status, "failed")
+        self.assertTrue(any("stale plan" in e for e in result.errors), result.errors)
+        self.assertEqual(fx.commands, [], "stale plan must not run any command")
+
+    def test_all_source_matrix_fixtures_converge(self):
+        """Spec §15 source-state matrix: every fixture must plan and dry-run."""
+        from src.target.compatibility import classify_source
+        import tempfile
+        fixtures = (
+            "clean-arch", "arch-plasma", "arch-hyprland", "arch-gnome",
+            "arch-xfce", "arch-sway", "arch-five-year-old", "old-sunshine",
+        )
+        for fixture in fixtures:
+            with self.subTest(fixture=fixture):
+                state, target, plan, decisions, fx = _fixture_pipeline(fixture)
+                report = classify_source(state)
+                self.assertTrue(report.supported, f"{fixture}: {report.blockers}")
+                self.assertGreater(len(plan.operations), 0, fixture)
+                result = execute_plan(plan, Path(tempfile.mkdtemp()), fx, dry_run=True)
+                self.assertEqual(result.status, "dry_run", f"{fixture}: {result.errors}")
+
+    def test_repeated_planning_is_idempotent(self):
+        """A second plan against converged state must not repeat mutations."""
+        from src.core import OpType
+        from src.target.compatibility import classify_source
+        state, target, plan, decisions, fx = _fixture_pipeline("clean-arch")
+        # Converged state: mark all components registered and all capabilities
+        # present, then confirm planning emits validation but no mutations.
+        from src.core import observation
+        for spec in target.components.values():
+            marker = f"sunshine-component:{spec.id}"
+            state.capabilities.add(marker)
+            state.observe(observation(marker, marker, "high", "enabled", ["converged fixture"]))
+            for cap in spec.provides:
+                state.capabilities.add(cap)
+        for packages in target.package_sets.values():
+            for package in packages:
+                state.packages[package] = "1.0-1"
+        from src.planner import plan as build_plan
+        second = build_plan(state, target, decisions=decisions)
+        mutations = [o for o in second.operations
+                     if o.type is not OpType.VALIDATE_CAPABILITY]
+        self.assertEqual(mutations, [],
+                         f"repeated run produced {len(mutations)} mutations")
+        self.assertEqual(classify_source(state).supported, True)
 
     def test_executor_group_promotion_preserves_dag_order(self):
         """A RegisterComponent depending on InstallBootEntry must run after it."""

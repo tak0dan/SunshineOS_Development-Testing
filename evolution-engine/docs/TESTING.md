@@ -47,7 +47,21 @@ python3 -m unittest discover -s tests -v
 ```
 
 Tests use fake `root` paths and injected `execute(cmd)` callables so no test touches the real
-system. See `tests/` for discovery, target, planner, executor and idempotency coverage.
+system. Current suite: **106 tests, OK**. Coverage includes discovery, users, source compatibility,
+target resolution, contradictory decisions, Stage A trust, component contracts, adapters, planner,
+executor, interrupted resume, stale plans, CLI fixture fidelity and idempotency.
+
+For a host-independent CLI demo:
+
+```bash
+python3 src/engine.py --fixture clean-arch --check
+python3 src/engine.py --fixture arch-hyprland --plan
+python3 src/engine.py --fixture clean-arch --state-root /tmp/eve-sandbox \
+  --apply --decide desktop-profile=hyprland
+```
+
+Read-only and dry-run commands never need a sandbox. Real fixture applies require an explicit
+`--state-root` and refuse the live `/var/lib/sunshine`.
 
 ## Live verification checklist
 

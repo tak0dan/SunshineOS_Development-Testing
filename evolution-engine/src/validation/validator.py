@@ -53,6 +53,19 @@ def _register(name: str):
     return deco
 
 
+def _any_path(root: Path, *relative_paths: str) -> tuple[bool, list[str]]:
+    found = [p for p in relative_paths if (root / p).exists()]
+    return bool(found), found or list(relative_paths)
+
+
+@_register("arch-foundation")
+def _v_arch_foundation(root: Path, ex: Execute):
+    rc, out, _ = ex("pacman --version")
+    ok = rc == 0 and "pacman" in out.lower()
+    return ok, [out.strip().splitlines()[0] if out.strip() else "pacman unavailable"], \
+        "Arch package foundation is available"
+
+
 @_register("systemd")
 def _v_systemd(root: Path, ex: Execute):
     rc, out, _ = ex("systemctl is-system-running")
@@ -82,12 +95,43 @@ def _v_config(root: Path, ex: Execute):
     return ok, [str(p), str(manifest)], "Sunshine config root and component registry present"
 
 
+@_register("unified-configuration")
+def _v_unified_config(root: Path, ex: Execute):
+    ok, paths = _any_path(
+        root,
+        "etc/sunshine/config",
+        "etc/sunshine/components",
+        "etc/sunshine/system.toml",
+        "var/lib/sunshine/config",
+    )
+    return ok, paths, "unified Sunshine configuration tree is present"
+
+
+@_register("ownership-enforcement")
+def _v_ownership_enforcement(root: Path, ex: Execute):
+    ok, paths = _any_path(
+        root,
+        "var/lib/sunshine/ownership",
+        "etc/sunshine/ownership.toml",
+        "var/lib/sunshine/state/components.toml",
+    )
+    return ok, paths, "package ownership registry is wired into component state"
+
+
 @_register("boot-entry-management")
 def _v_boot(root: Path, ex: Execute):
     rc, out, _ = ex("efibootmgr -v")
     efi = root / "sys/firmware/efi"
     ok = (rc == 0 and "Boot" in out) or efi.exists()
     return ok, [out.strip()[:200], f"efi dir: {efi.exists()}"], "boot entry tooling available"
+
+
+@_register("bootloader-configuration")
+def _v_bootloader_config(root: Path, ex: Execute):
+    rc, out, _ = ex("efibootmgr -v")
+    configs, _ = _any_path(root, "boot/grub/grub.cfg", "boot/loader/entries")
+    ok = configs or (rc == 0 and "Boot" in out)
+    return ok, configs + [out.strip()[:120]], "bootloader configuration or EFI entry is present"
 
 
 @_register("kernel-installation")
@@ -107,9 +151,37 @@ def _v_fallback(root: Path, ex: Execute):
 
 @_register("recovery-checkpoints")
 def _v_recovery(root: Path, ex: Execute):
-    p = root / "var/lib/sunshine/recovery/checkpoints"
-    ok = p.is_dir()
-    return ok, [str(p)], "recovery checkpoint store initialized"
+    ok, paths = _any_path(
+        root,
+        "migration/checkpoints",
+        "var/lib/sunshine/recovery/checkpoints",
+        "recovery/checkpoints",
+    )
+    return ok, paths, "recovery checkpoint store initialized"
+
+
+@_register("rollback")
+def _v_rollback(root: Path, ex: Execute):
+    ok, paths = _any_path(
+        root,
+        "var/lib/sunshine/recovery/checkpoints",
+        "migration/journal/journal.jsonl",
+        "migration/transactions",
+    )
+    return ok, paths, "rollback evidence (checkpoints or journal) is present"
+
+
+@_register("nix-integration")
+def _v_nix(root: Path, ex: Execute):
+    rc, out, _ = ex("nix --version")
+    ok, paths = _any_path(root, "etc/nix/nix.conf", "var/lib/sunshine/nix")
+    return ok or rc == 0, paths + [out.strip()[:120]], "Nix integration is available when enabled"
+
+
+@_register("foreign-package-visibility")
+def _v_foreign_packages(root: Path, ex: Execute):
+    rc, _, _ = ex("pacman -Qqm")
+    return rc == 0, ["pacman -Qqm"], "foreign packages can be enumerated"
 
 
 @_register("desktop-session-discovery")
@@ -146,9 +218,8 @@ def _v_audio(root: Path, ex: Execute):
 
 @_register("migration-recovery")
 def _v_migration_recovery(root: Path, ex: Execute):
-    p = root / "var/lib/sunshine/migration/journal"
-    ok = p.is_dir()
-    return ok, [str(p)], "migration journal store present"
+    ok, paths = _any_path(root, "migration/journal", "var/lib/sunshine/migration/journal")
+    return ok, paths, "migration journal store present"
 
 
 def validate_capability(capability: str, root: str | Path = "/", execute: Optional[Execute] = None,

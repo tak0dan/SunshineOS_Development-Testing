@@ -68,6 +68,22 @@ def base_arch_root(root: str) -> None:
         'NAME="Arch Linux"\nPRETTY_NAME="Arch Linux"\nID=arch\nBUILD_ID=rolling\n',
     )
     write_file(root, "/etc/arch-release", "")
+    write_file(
+        root,
+        "/etc/passwd",
+        "root:x:0:0:root:/root:/bin/bash\n"
+        "systemd-network:x:980:980:systemd Network Management:/:/usr/bin/nologin\n"
+        "sunshine:x:1000:1000:Sunshine User:/home/sunshine:/bin/bash\n",
+    )
+    write_file(
+        root,
+        "/etc/group",
+        "root:x:0:\n"
+        "wheel:x:998:sunshine\n"
+        "sudo:x:999:\n"
+        "users:x:100:sunshine\n",
+    )
+    make_dir(root, "/home/sunshine")
     write_file(root, "/etc/pacman.conf", "[options]\nHoldPkg = pacman glibc\n[core]\n[extra]\n[multilib]\n")
     make_dir(root, "/var/lib/pacman/local")
     make_dir(root, "/var/lib/pacman/sync")
@@ -278,6 +294,29 @@ class DiscoveryTests(unittest.TestCase):
 
         self.assert_low_confidence_is_harmless(state)
         self.assertIsInstance(state.to_dict()["capabilities"], list)
+
+    def test_users_are_discovered_without_secret_data(self) -> None:
+        """Stage B preserves user/group facts but never records password hashes."""
+        state = discover(root=self.root, execute=self.execute)
+
+        self.assertEqual([u["name"] for u in state.users], ["sunshine"])
+        self.assertEqual(state.users[0]["shell"], "/bin/bash")
+        self.assertEqual(state.groups["wheel"], ["sunshine"])
+        self.assertTrue(state.home_directories[0]["exists"])
+        self.assertIs(state.observations["users.accounts"].status, Status.FUNCTIONAL)
+        self.assertIn("user-accounts", state.capabilities)
+
+        dumped = state.to_dict()
+        self.assertTrue(all("password" not in u for u in dumped["users"]))
+        for observation in dumped["observations"].values():
+            self.assertNotIn("shadow", str(observation).lower())
+
+    def test_missing_user_database_is_low_confidence_not_a_crash(self) -> None:
+        os.unlink(self.root + "/etc/passwd")
+        state = discover(root=self.root, execute=self.execute)
+        self.assertIs(state.observations["users.accounts"].status, Status.ABSENT)
+        self.assertIs(state.observations["users.accounts"].confidence, Confidence.LOW)
+        self.assertEqual(state.users, [])
 
     def test_old_sunshine_partial_installation(self) -> None:
         """Partial Sunshine markers are detected, including HIGH boot confidence."""

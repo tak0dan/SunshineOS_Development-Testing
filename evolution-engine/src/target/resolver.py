@@ -47,6 +47,18 @@ _GENERIC_VALUES = {
     "yes",
     "true",
     "unknown",
+    # Observation key suffixes that describe the *kind* of finding, not a
+    # user choice (e.g. audio.backend=pipewire, audio.coexistence=...).
+    "backend",
+    "coexistence",
+    "implementation",
+    "mode",
+    "profile",
+    "selection",
+    "service",
+    # Compatibility layers are not competing backends.
+    "pipewire-pulse-compatibility",
+    "compatibility",
 }
 _NEGATIVE_VALUES = {"absent", "none", "false", "disabled", "no", "not-installed", "not installed"}
 
@@ -149,8 +161,17 @@ def _resolve_desktop(
         list(target.package_sets.get("desktop_integration", [])) + list(profile.packages)
     )
     if component is not None:
+        # A profile's required_capabilities describe what the *component*
+        # provides once the profile is active.  Treating them as prerequisites
+        # made desktop_integration depend on itself whenever a desktop was
+        # unambiguously detected (a break found in fixture CLI mode).
+        own_capabilities = set(component.provides) | {component.id}
+        extra_requirements = [
+            capability for capability in profile.required_capabilities
+            if capability not in own_capabilities
+        ]
         component.requires = _dedupe(
-            list(component.requires) + list(profile.required_capabilities)
+            list(component.requires) + extra_requirements
         )
         component.provides = _dedupe(
             list(component.provides) + [f"desktop-profile:{profile.id}"]
@@ -206,12 +227,64 @@ def _choice_from_text(value: str, choices: Iterable[str]) -> str | None:
     return None
 
 
-def _observed_choice(
+def _signal_strength(observation) -> int:
+    """Rank how actively an observation describes an installed choice.
+
+    An installed-but-unused package is not a competing backend. Active units,
+    firmware entries and written configuration are much stronger evidence than
+    mere package presence; the resolver must not ask the user to arbitrate
+    between a running service and an unused alternative.
+    """
+    strength = {
+        Status.RUNNING: 3,
+        Status.CONFIGURED: 3,
+        Status.INSTALLED: 1,
+        Status.ABSENT: 0,
+    }.get(observation.status, 0)
+    evidence = " ".join(str(e).lower() for e in observation.evidence)
+    if any(marker in evidence for marker in (
+        "enabled units", "active units", "efi boot entry", "config:",
+        "configured default", "display-manager.service",
+    )):
+        strength += 1
+    return strength
+
+
+def _observed_choices(
     observed: ObservedState, category: str
-) -> tuple[str, list[str], Confidence] | None:
-    """Find a raw user choice for ``category`` in observations/capabilities."""
+) -> list[tuple[str, list[str], Confidence, int]]:
+    """Find every distinct raw choice for ``category`` from observations.
+
+    A machine can legitimately report contradictory signals (for example GRUB
+    and systemd-boot entries). Returning only the first one silently guessed
+    intent; collecting all of them lets :func:`_preserve_choice` ask one focused
+    question when the signals are equally strong. Installed-only alternatives
+    are deliberately weaker than running/configured backends.
+    """
     needle = category.lower()
     pattern = re.compile(rf"(?:^|[-_:./ ]){re.escape(needle)}[-_:./ ]?")
+    collected: dict[str, tuple[str, list[str], Confidence, int]] = {}
+    rank = {Confidence.LOW: 0, Confidence.MEDIUM: 1, Confidence.HIGH: 2}
+
+    def add(token: str, evidence: list[str], confidence: Confidence, strength: int) -> None:
+        token = token.strip()
+        if not token or token.lower() in _GENERIC_VALUES:
+            return
+        key = token.lower()
+        previous = collected.get(key)
+        if previous is None:
+            collected[key] = (token, list(dict.fromkeys(evidence)), confidence, strength)
+            return
+        merged_confidence = (
+            previous[2] if rank[previous[2]] >= rank[confidence] else confidence
+        )
+        collected[key] = (
+            previous[0],
+            list(dict.fromkeys(previous[1] + evidence)),
+            merged_confidence,
+            max(previous[3], strength),
+        )
+
     for key, observation in observed.observations.items():
         if observation.status == Status.ABSENT:
             continue
@@ -234,13 +307,28 @@ def _observed_choice(
         for candidate in candidates:
             token = candidate.strip()
             if token and token.lower() not in _GENERIC_VALUES:
-                return token, [f"{key}: {observation.detected}"], observation.confidence
+                add(token, [f"{key}: {observation.detected}"],
+                    observation.confidence, _signal_strength(observation))
+                break  # one signal per observation is enough
 
     for capability in sorted(observed.capabilities):
         split = re.split(rf"^{re.escape(needle)}[-_:]", str(capability).lower(), maxsplit=1)
         if len(split) == 2 and split[1].strip():
-            return split[1].strip(), [f"capability: {capability}"], Confidence.MEDIUM
-    return None
+            add(split[1].strip(), [f"capability: {capability}"], Confidence.MEDIUM, 1)
+    # Preserve observation order: the first discovered backend is the most
+    # direct signal and remains the backward-compatible `_observed_choice`.
+    return list(collected.values())
+
+
+def _observed_choice(
+    observed: ObservedState, category: str
+) -> tuple[str, list[str], Confidence] | None:
+    """Backward-compatible wrapper returning the first observed choice."""
+    choices = _observed_choices(observed, category)
+    if not choices:
+        return None
+    token, evidence, confidence, _strength = choices[0]
+    return token, evidence, confidence
 
 
 def _preserve_choice(
@@ -253,27 +341,52 @@ def _preserve_choice(
     supported = _supported_choices(target, category)
     if not supported:
         return
-    found = _observed_choice(observed, category)
-    if found is None:
+    found = _observed_choices(observed, category)
+    if not found:
         return
-    raw, evidence, confidence = found
-    choice = _choice_from_text(raw, supported)
 
-    if choice is None:
+    # Only equally strong signals compete. A running GRUB entry and an unused
+    # refind package are not a contradiction; they are different evidence tiers.
+    strongest = max(item[3] for item in found)
+    actionable = [item for item in found if item[3] == strongest]
+
+    resolved_choices: list[str] = []
+    all_evidence: list[str] = []
+    best_confidence = Confidence.LOW
+    unsupported: list[str] = []
+    for raw, evidence, confidence, _strength in actionable:
+        all_evidence.extend(evidence)
+        if rank_confidence(confidence) > rank_confidence(best_confidence):
+            best_confidence = confidence
+        choice = _choice_from_text(raw, supported)
+        if choice is None:
+            unsupported.append(raw)
+        else:
+            resolved_choices.append(choice)
+    distinct = sorted(set(resolved_choices))
+
+    if unsupported or len(distinct) != 1:
+        options = distinct or sorted(supported)
+        reason = (
+            f"Observed {category} '{', '.join(unsupported)}' is not supported by this target."
+            if unsupported else
+            f"Conflicting {category} choices were observed: {', '.join(distinct)}."
+        )
         decisions.append(
             _decision(
                 f"{category}-choice",
                 category,
-                options=sorted(supported),
+                options=options,
                 auto=False,
-                question=f"Which {category} should replace the observed '{raw}'?",
-                reason=f"Observed {category} '{raw}' is not supported by this target.",
-                evidence=evidence,
-                confidence=confidence.value,
+                question=f"Which {category} should Sunshine use?",
+                reason=reason,
+                evidence=all_evidence,
+                confidence=best_confidence.value,
             )
         )
         return
 
+    choice = distinct[0]
     target.package_sets[category] = _dedupe(list(supported[choice]))
     decisions.append(
         _decision(
@@ -283,10 +396,14 @@ def _preserve_choice(
             options=[choice],
             action="preserve",
             reason=f"Preserving the existing compatible {category} choice '{choice}'.",
-            evidence=evidence,
-            confidence=confidence.value,
+            evidence=all_evidence,
+            confidence=best_confidence.value,
         )
     )
+
+
+def rank_confidence(confidence: Confidence) -> int:
+    return {Confidence.LOW: 0, Confidence.MEDIUM: 1, Confidence.HIGH: 2}[confidence]
 
 
 def _is_negative(value: str) -> bool:

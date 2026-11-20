@@ -123,6 +123,22 @@ class ResolutionTests(unittest.TestCase):
         self.assertEqual(self.target.package_sets["desktop_integration"], [])
         self.assertNotIn("desktop-profile:plasma", self.target.components["desktop_integration"].provides)
 
+    def test_profile_capabilities_do_not_create_self_dependency(self):
+        """A selected profile must not make its own component a prerequisite."""
+        from src.planner import plan as build_plan
+        observed = ObservedState(distribution="arch", init_system="systemd",
+                                 package_manager="pacman", architecture="x86_64")
+        observed.packages["hyprland"] = "0.42.0-1"
+        observed.observe(_observation("desktop_session", "hyprland", Confidence.HIGH, Status.RUNNING))
+
+        resolved, decisions = resolve_target(observed, self.target)
+        spec = resolved.components["desktop_integration"]
+        for capability in spec.provides:
+            self.assertNotIn(capability, spec.requires)
+        # Planning must not raise "component dependency cycle detected".
+        result = build_plan(observed, resolved, decisions=decisions)
+        self.assertTrue(result.operations)
+
     def test_resolve_with_multiple_desktops_requires_one_decision(self):
         observed = ObservedState()
         observed.observe(_observation("desktop_session", "plasma", Confidence.HIGH, Status.RUNNING))
@@ -205,6 +221,35 @@ class ResolutionTests(unittest.TestCase):
             self.assertEqual(records[0]["action"], "preserve")
             self.assertTrue(records[0]["auto"])
         self.assertFalse(any(d["requires_user_input"] for d in decisions))
+
+    def test_conflicting_bootloaders_ask_one_question(self):
+        observed = ObservedState()
+        observed.observe(_observation("bootloader.grub", "grub", Confidence.HIGH, Status.RUNNING))
+        observed.observe(
+            _observation("bootloader.systemd-boot", "systemd-boot", Confidence.HIGH, Status.RUNNING)
+        )
+        _, decisions = resolve_target(observed, self.target)
+        choices = _decisions_of(decisions, "bootloader")
+        self.assertEqual(len(choices), 1)
+        self.assertTrue(choices[0]["requires_user_input"])
+        self.assertEqual(set(choices[0]["options"]), {"grub", "systemd-boot"})
+
+    def test_installed_only_alternative_does_not_create_conflict(self):
+        """An unused package is weaker evidence than a running backend."""
+        observed = ObservedState()
+        observed.observe(_observation(
+            "bootloader.grub", "grub", Confidence.HIGH, Status.RUNNING,
+            ["config: /boot/grub/grub.cfg", "EFI boot entry: Boot0002 GRUB"],
+        ))
+        observed.observe(_observation(
+            "bootloader.refind", "refind", Confidence.MEDIUM, Status.INSTALLED,
+            ["installed package: refind", "no firmware boot entry corroboration"],
+        ))
+        _, decisions = resolve_target(observed, self.target)
+        choices = _decisions_of(decisions, "bootloader")
+        self.assertEqual(len(choices), 1)
+        self.assertFalse(choices[0]["requires_user_input"])
+        self.assertEqual(choices[0]["selected"], "grub")
 
     def test_unsupported_choice_asks_exactly_one_question(self):
         observed = ObservedState()

@@ -254,6 +254,21 @@ def _collect_audio(state: ObservedState, execute: Execute, enabled: set[str], ru
             },
         ),
     )
+    pulse_observation = state.observations.get("audio.pulseaudio")
+    if (
+        scores.get("pipewire")
+        and pulse_observation is not None
+        and pulse_observation.status is not Status.ABSENT
+        and any("pipewire" in str(item).lower() for item in pulse_observation.evidence)
+    ):
+        # `pactl info` succeeds through pipewire-pulse; that is not evidence of
+        # a second audio daemon and must not create a false target decision.
+        pulse_observation.status = Status.ABSENT
+        pulse_observation.confidence = Confidence.LOW
+        pulse_observation.evidence.append(
+            "pactl speaks to PipeWire compatibility layer; legacy PulseAudio daemon absent"
+        )
+
     if scores.get("pipewire") and scores.get("pulseaudio"):
         observe(
             state,

@@ -39,6 +39,7 @@ from .services_desktop import discover_services_desktop
 from .storage import discover_storage
 from .sunshine import discover_sunshine
 from .system import discover_system
+from .users import discover_users
 
 
 def discover(root: str = "/", execute: Execute | None = None) -> ObservedState:
@@ -56,7 +57,7 @@ def discover(root: str = "/", execute: Execute | None = None) -> ObservedState:
     Returns:
         A new :class:`~core.ObservedState`.  Passes run in dependency order:
         base system -> packages -> kernel/boot -> storage -> services/desktop
-        -> Sunshine -> capability derivation.  A failure in one pass is
+        -> users -> Sunshine -> capability derivation.  A failure in one pass is
         recorded as a LOW-confidence observation rather than raised, so a
         partially observable machine still yields a usable state.
     """
@@ -68,6 +69,7 @@ def discover(root: str = "/", execute: Execute | None = None) -> ObservedState:
     discover_kernel_boot(state, root, ex)
     discover_storage(state, root, ex)
     discover_services_desktop(state, root, ex)
+    discover_users(state, root, ex)
     discover_sunshine(state, root, ex)
     derive_capabilities(state, root, ex)
     return state
@@ -80,6 +82,7 @@ __all__ = [
     "discover_kernel_boot",
     "discover_storage",
     "discover_services_desktop",
+    "discover_users",
     "discover_sunshine",
     "derive_capabilities",
     "ObservedState",

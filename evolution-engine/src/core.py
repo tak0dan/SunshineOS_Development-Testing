@@ -6,6 +6,8 @@ can run before Python-heavy Sunshine components are installed.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 from typing import Any
@@ -74,6 +76,14 @@ class ObservedState:
     foreign_packages: list[str] = field(default_factory=list)
     repositories: list[str] = field(default_factory=list)
     capabilities: set[str] = field(default_factory=set)
+    # Non-secret user inventory from Stage B discovery.  Password hashes and
+    # shadow data are intentionally never copied into plans or logs.
+    users: list[dict[str, Any]] = field(default_factory=list)
+    groups: dict[str, list[str]] = field(default_factory=dict)
+    home_directories: list[dict[str, Any]] = field(default_factory=list)
+    # Repository generation already committed on this machine (0 = unknown).
+    # Used to reject rollback to an older published repository state.
+    repository_generation: int = 0
 
     def observe(self, o: Observation) -> None:
         self.observations[o.component] = o
@@ -163,3 +173,11 @@ class JournalEntry:
 
 def observation(component: str, detected: str, confidence: str, status: str, evidence: list[str]) -> Observation:
     return Observation(component, detected, Confidence(confidence), Status(status), evidence)
+
+
+def state_fingerprint(state: ObservedState) -> str:
+    """Stable digest of an observed machine, used for stale-plan detection."""
+    payload = json.dumps(
+        state.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=True, default=str
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]

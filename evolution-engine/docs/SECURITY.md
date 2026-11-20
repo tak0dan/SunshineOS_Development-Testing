@@ -13,10 +13,16 @@
    verified procedure recorded in the repository. **A key is never fetched from the same
    unauthenticated server that serves the code it signs.**
 
-> Known gap to close: the current `sunshine-toolsync` fetches its manifest and signature from
-> the same GitHub release, and trusts a local GPG keyring file. Rotation therefore requires
-> updating that keyring out-of-band (as done in the 2026-11-20 rotation). A chained rotation
-> document signed by the previous key should be added to the release.
+The protocol-level implementation is in `src/trust`: a downloaded key is only trusted after a
+rotation record verifies against a key that was already trusted, self-signed rotations are
+rejected, artifacts must match signed SHA-256 digests, and the Core handoff must name a verified
+artifact.
+
+> Known production gap: the current `sunshine-toolsync` fetches its manifest and signature from
+> the same GitHub release and trusts a local GPG keyring file. Rotation therefore still requires
+> updating that keyring out-of-band (as done in the 2026-11-20 rotation). The release must ship a
+> chained rotation document signed by the previous key, and the pinned root must live inside a
+> small Rust bootstrap rather than the Python CLI.
 
 ## Privilege model
 
@@ -41,6 +47,9 @@
 | Partial-upgrade breakage | Coherent full-upgrade transactions; refuse partial upgrades |
 | Loss of user configuration | Ownership classification; three-way merge; preserve user/system/unknown conservatively |
 | Boot failure after kernel migration | Install alongside existing kernel, keep previous entry, validate before committing |
+| Reviewed plan executed against mutated machine | `source.observed_fingerprint` mismatch aborts as `stale plan` before any command |
+| Contradictory discovery guesses user intent | Distinct bootloader/network/audio signals force one focused decision |
+| Fixture/demo leaks real host state | Single injected executor for discovery and execution; live state root refused |
 
 ## Fail-closed rules
 
