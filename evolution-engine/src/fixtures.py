@@ -309,7 +309,13 @@ class FixtureExecutor:
             if self.state_root is not None:
                 parts = shlex.split(cmd)
                 preset = parts[parts.index("-p") + 1] if "-p" in parts else "linux"
-                image = self.state_root / "boot" / f"initramfs-{preset}.img"
+                if "-g" in parts:
+                    # Never let a fixture write to the real /boot: strip the
+                    # absolute prefix and keep every effect in the sandbox.
+                    rel_image = Path(parts[parts.index("-g") + 1])
+                    image = self.state_root / str(rel_image).lstrip("/")
+                else:
+                    image = self.state_root / "boot" / f"initramfs-{preset}.img"
                 image.parent.mkdir(parents=True, exist_ok=True)
                 image.write_bytes(b"fixture initramfs\n")
                 fallback = image.with_name(f"initramfs-{preset}-fallback.img")

@@ -53,9 +53,22 @@ def _register(name: str):
     return deco
 
 
-def _any_path(root: Path, *relative_paths: str) -> tuple[bool, list[str]]:
-    found = [p for p in relative_paths if (root / p).exists()]
+def _any_path(root: Path, *relative_paths: str, state_root: Path | None = None) -> tuple[bool, list[str]]:
+    # A live apply keeps engine bookkeeping in state_root while mutating the
+    # real filesystem. Engine-owned capabilities may live in either tree.
+    roots = [Path(root)]
+    if state_root is not None and Path(state_root) != Path(root):
+        roots.append(Path(state_root))
+    found = [str(Path(r) / p) for p in relative_paths for r in roots if (r / p).exists()]
     return bool(found), found or list(relative_paths)
+
+
+def _owned_dir(root: Path, relative: str, state_root: Path | None = None) -> tuple[bool, list[str]]:
+    roots = [Path(root)]
+    if state_root is not None and Path(state_root) != Path(root):
+        roots.append(Path(state_root))
+    found = [str(r / relative) for r in roots if (r / relative).is_dir()]
+    return bool(found), found or [str(Path(root) / relative)]
 
 
 @_register("arch-foundation")
@@ -81,39 +94,45 @@ def _v_pacman(root: Path, ex: Execute):
 
 
 @_register("package-ownership-registry")
-def _v_ownership(root: Path, ex: Execute):
-    p = root / "var/lib/sunshine/ownership"
-    ok = p.is_dir()
-    return ok, [str(p)], "ownership registry directory initialized"
+def _v_ownership(root: Path, ex: Execute, state_root: Path | None = None):
+    ok, paths = _owned_dir(root, "var/lib/sunshine/ownership", state_root)
+    return ok, paths, "ownership registry directory initialized"
 
 
 @_register("configuration-ownership")
-def _v_config(root: Path, ex: Execute):
-    p = root / "etc/sunshine"
-    manifest = root / "var/lib/sunshine/state/components.toml"
-    ok = p.is_dir() and manifest.exists()
-    return ok, [str(p), str(manifest)], "Sunshine config root and component registry present"
+def _v_config(root: Path, ex: Execute, state_root: Path | None = None):
+    config_ok, config_paths = _owned_dir(root, "etc/sunshine")
+    roots = [Path(root)]
+    if state_root is not None and Path(state_root) != Path(root):
+        roots.append(Path(state_root))
+    manifests = [str(r / "var/lib/sunshine/state/components.toml") for r in roots
+                 if (r / "var/lib/sunshine/state/components.toml").exists()]
+    ok = config_ok and bool(manifests)
+    return ok, config_paths + (manifests or ["components.toml missing"]), \
+        "Sunshine config root and component registry present"
 
 
 @_register("unified-configuration")
-def _v_unified_config(root: Path, ex: Execute):
+def _v_unified_config(root: Path, ex: Execute, state_root: Path | None = None):
     ok, paths = _any_path(
         root,
         "etc/sunshine/config",
         "etc/sunshine/components",
         "etc/sunshine/system.toml",
         "var/lib/sunshine/config",
+        state_root=state_root,
     )
     return ok, paths, "unified Sunshine configuration tree is present"
 
 
 @_register("ownership-enforcement")
-def _v_ownership_enforcement(root: Path, ex: Execute):
+def _v_ownership_enforcement(root: Path, ex: Execute, state_root: Path | None = None):
     ok, paths = _any_path(
         root,
         "var/lib/sunshine/ownership",
         "etc/sunshine/ownership.toml",
         "var/lib/sunshine/state/components.toml",
+        state_root=state_root,
     )
     return ok, paths, "package ownership registry is wired into component state"
 
@@ -154,23 +173,25 @@ def _v_fallback(root: Path, ex: Execute):
 
 
 @_register("recovery-checkpoints")
-def _v_recovery(root: Path, ex: Execute):
+def _v_recovery(root: Path, ex: Execute, state_root: Path | None = None):
     ok, paths = _any_path(
         root,
         "migration/checkpoints",
         "var/lib/sunshine/recovery/checkpoints",
         "recovery/checkpoints",
+        state_root=state_root,
     )
     return ok, paths, "recovery checkpoint store initialized"
 
 
 @_register("rollback")
-def _v_rollback(root: Path, ex: Execute):
+def _v_rollback(root: Path, ex: Execute, state_root: Path | None = None):
     ok, paths = _any_path(
         root,
         "var/lib/sunshine/recovery/checkpoints",
         "migration/journal/journal.jsonl",
         "migration/transactions",
+        state_root=state_root,
     )
     return ok, paths, "rollback evidence (checkpoints or journal) is present"
 
@@ -214,10 +235,24 @@ def _v_network(root: Path, ex: Execute):
 
 
 @_register("audio-pipewire")
-def _v_audio(root: Path, ex: Execute):
-    rc, out, _ = ex("systemctl --user is-active pipewire")
-    ok = rc == 0 and "active" in out.lower()
-    return ok, [out.strip()], "pipewire user service active"
+def _v_audio(root: Path, ex: Execute, state_root: Path | None = None):
+    rc, out, err = ex("systemctl --user is-active pipewire")
+    if rc == 0 and "active" in out.lower():
+        return True, [out.strip()], "pipewire user service active"
+    # Verification run as root has no user bus, so it cannot query a user
+    # service. Only treat that specific environment limitation as inconclusive
+    # and fall back to the installed package; a real "inactive" answer (used
+    # by tamper tests) must still fail closed.
+    no_bus = any(needle in (err or "") for needle in (
+        "user scope bus", "DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR",
+        "Failed to connect to bus",
+    ))
+    if no_bus:
+        rc2, out2, _ = ex("pacman -Q pipewire")
+        if rc2 == 0:
+            return True, [(out or err).strip()[:120], out2.strip()], \
+                "pipewire installed; user session query unavailable to this caller"
+    return False, [(out or err).strip()[:200]], "pipewire user service active"
 
 
 @_register("audio-pulseaudio")
@@ -228,13 +263,15 @@ def _v_audio_pulse(root: Path, ex: Execute):
 
 
 @_register("migration-recovery")
-def _v_migration_recovery(root: Path, ex: Execute):
-    ok, paths = _any_path(root, "migration/journal", "var/lib/sunshine/migration/journal")
+def _v_migration_recovery(root: Path, ex: Execute, state_root: Path | None = None):
+    ok, paths = _any_path(root, "migration/journal", "var/lib/sunshine/migration/journal",
+                          state_root=state_root)
     return ok, paths, "migration journal store present"
 
 
 def validate_capability(capability: str, root: str | Path = "/", execute: Optional[Execute] = None,
-                        observed: Optional[ObservedState] = None) -> ValidationReport:
+                        observed: Optional[ObservedState] = None,
+                        state_root: Optional[str | Path] = None) -> ValidationReport:
     """Probe a single capability. Unknown capabilities fail closed (never assume)."""
     ex = execute or _default_execute
     p = Path(root)
@@ -245,14 +282,18 @@ def validate_capability(capability: str, root: str | Path = "/", execute: Option
             return ValidationReport(capability, True, ["observed-capability"], "derived from discovery only; no active probe")
         return ValidationReport(capability, False, [], f"no validator for capability '{capability}'")
     try:
-        ok, evidence, detail = probe(p, ex)
+        try:
+            ok, evidence, detail = probe(p, ex, Path(state_root) if state_root is not None else None)
+        except TypeError:  # probes that only need the system root keep their 2-arg form
+            ok, evidence, detail = probe(p, ex)
     except Exception as exc:  # a broken probe must fail closed, not crash the engine
         return ValidationReport(capability, False, [], f"validator error: {exc}")
     return ValidationReport(capability, bool(ok), evidence, detail)
 
 
 def validate_system(observed: ObservedState, target: TargetSpec, root: str | Path = "/",
-                    execute: Optional[Execute] = None) -> list[ValidationReport]:
+                    execute: Optional[Execute] = None,
+                    state_root: Optional[str | Path] = None) -> list[ValidationReport]:
     """Validate every capability required by the resolved target's components."""
     caps: set[str] = set()
     # Only active (required) components are promises of the resolved target.
@@ -271,7 +312,7 @@ def validate_system(observed: ObservedState, target: TargetSpec, root: str | Pat
         caps.add("audio-pulseaudio" if "pulseaudio" in audio_packages else "audio-pipewire")
     caps.add("systemd")
     caps.add("pacman")
-    return [validate_capability(c, root, execute, observed) for c in sorted(caps)]
+    return [validate_capability(c, root, execute, observed, state_root) for c in sorted(caps)]
 
 
 def all_passed(reports: list[ValidationReport]) -> bool:

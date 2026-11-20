@@ -232,7 +232,8 @@ def execute_plan(plan: Plan, state_root: str | Path, execute: Optional[Execute] 
                  dry_run: bool = False, validator: Optional[Callable[..., Any]] = None,
                  observed: Optional[ObservedState] = None, verify: bool = True,
                  adapters: Optional[AdapterRegistry] = None,
-                 adapter_launcher: Optional[Callable[..., Any]] = None) -> ExecutionResult:
+                 adapter_launcher: Optional[Callable[..., Any]] = None,
+                 system_root: Optional[str | Path] = None) -> ExecutionResult:
     """Execute a plan transactionally.
 
     ``resume=True`` re-discovers actual state (journal + probes) and skips only
@@ -245,7 +246,8 @@ def execute_plan(plan: Plan, state_root: str | Path, execute: Optional[Execute] 
     if observed is not None:
         discovered = observed
     context = ExecutionContext(
-        state_root=Path(state_root), execute=ex, checkpoint=checkpoint, validator=validator,
+        state_root=Path(state_root), system_root=Path(system_root) if system_root is not None else None,
+        execute=ex, checkpoint=checkpoint, validator=validator,
         dry_run=dry_run, resume=resume, plan_id=plan.id, observed=discovered,
         observations=observations,
         repository_generation_changed=bool(
@@ -323,7 +325,8 @@ def execute_plan(plan: Plan, state_root: str | Path, execute: Optional[Execute] 
                          if e.status == "completed" and ":" not in e.id and
                          not e.operation.startswith("Transaction")]
         if completed_ids:
-            actual = journal.read_actual_state(context.root, ex, completed_ids, previous)
+            actual = journal.read_actual_state(context.fs_root, ex, completed_ids, previous,
+                                               state_root=context.root)
             for op_id in completed_ids:
                 check = actual.checks.get(op_id)
                 if check is not None and not check.matches:
@@ -395,7 +398,7 @@ def execute_plan(plan: Plan, state_root: str | Path, execute: Optional[Execute] 
 
         # Per-step validation: journal success is not proof of system state.
         if verify and not dry_run and outcome.metadata.get("verify"):
-            actual = journal.read_actual_state(context.root, ex, [op.id])
+            actual = journal.read_actual_state(context.fs_root, ex, [op.id], state_root=context.root)
             check = actual.checks.get(op.id)
             if check is not None and not check.matches:
                 error = (f"post-execution validation failed for {op.id}: expected_present="
@@ -414,7 +417,8 @@ def execute_plan(plan: Plan, state_root: str | Path, execute: Optional[Execute] 
 
     if not dry_run and verify:
         journal_state = journal.load()
-        actual = journal.read_actual_state(context.root, ex, journal_state=journal_state)
+        actual = journal.read_actual_state(context.fs_root, ex, journal_state=journal_state,
+                                           state_root=context.root)
         discrepancies = actual.discrepancies(journal_state)
         result.validations = [c.to_dict() for c in actual.checks.values()]
         if discrepancies:

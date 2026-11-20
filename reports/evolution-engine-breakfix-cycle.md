@@ -494,10 +494,115 @@ also gain a tamper case. `cmd_verify()` refuses to probe at all when Stage A fai
 **Regression guards.** `./test-post-migration.sh` proves baseline verification passes, then that
 each tamper case fails verification, names its capability, and includes a detail string.
 
+## Cycle 29 — target named packages the repository never published
+
+**Symptom.** A real root apply in the GUI VM stopped at `error: target not found: sunshine-config`.
+
+**Root cause.** `current.toml`, the embedded manifest and `DEFAULT_PACKAGES` used conceptual names
+(`sunshine-config`, `sunshine-ownership`) that `pacman -Sl sunshine` had never heard of. Fixtures
+synthesized those names, so no offline test could catch it.
+
+**Fix.** Both sets now map to `sunshine-base`, the package that actually owns `/etc/sunshine/*` and
+ships the ownership/snapshot tools. A regression test forbids any unpublished conceptual package
+name in the target.
+
+**Regression guard.** `test_target_packages_exist_in_the_published_repository`.
+
+## Cycle 30 — the Sunshine release version was used as a kernel preset
+
+**Symptom.** After fixing packages, `mkinitcpio` failed with
+`Failed to load preset: '/etc/mkinitcpio.d/2026.1.preset'`.
+
+**Root cause.** `plan_kernel_management` passed the component's `software_version` (`2026.1`) into
+`GenerateInitramfs` as the preset. On real Arch the only preset is `linux`.
+
+**Fix.** The preset is now the kernel package (`ctx.packages[0]`, normally `linux`); the release
+version stays as the component identity. A regression test asserts the preset is `linux`.
+
+**Regression guard.** `test_kernel_preset_is_real_kernel_package_not_release_version`.
+
+## Cycle 31 — initramfs verified in the sandbox instead of `/boot`
+
+**Symptom.** `mkinitcpio` succeeded but post-execution validation reported
+`exists(/tmp/eve-state/boot/initramfs-linux.img) -> False`.
+
+**Root cause.** `generate_initramfs` recorded a state-root-relative path verifier, while the real
+command writes to `/boot`. Fixtures write into the sandbox, so offline tests passed.
+
+**Fix.** Initramfs verification now carries a command probe (`ls /boot/initramfs-<preset>*.img`)
+answered through the injected executor. Fixtures answer from their sandbox; a live apply probes the
+real `/boot` and fails closed if the image is genuinely absent.
+
+**Regression guards.** `test_initramfs_probe_uses_executor_not_state_root` plus the journal probe
+test asserting both present and absent outcomes.
+
+## Cycle 32 — enabling a service no package provides
+
+**Symptom.** `Failed to enable unit: Unit sunshine-profiles.service does not exist`.
+
+**Root cause.** `plan_desktop_integration` emitted `EnableService(sunshine-profiles)` although no
+published package ships that unit. The profile tree is declarative and needs no daemon.
+
+**Fix.** The plan now enables `sunshine-apps.service`, which `sunshine-base` really ships for
+finishing chosen app/profile setup. A regression test forbids the phantom unit and requires a
+published one (the source matrix still requires a service operation in every plan).
+
+**Regression guard.** `test_desktop_profile_enables_only_a_published_service`.
+
+## Cycle 33 — one state root cannot represent both the sandbox and the live machine
+
+**Symptom.** Capability validation failed for `desktop-session-discovery` even though the VM had
+`/usr/share/wayland-sessions/hyprland.desktop`; engine-owned capabilities such as
+`recovery-checkpoints` failed in the opposite direction.
+
+**Root cause.** `state_root` was overloaded as both the journal/checkpoint location and the
+filesystem under verification. Package-provided capabilities live on the real root, while
+journal, checkpoints, ownership records and merge records live in the state root.
+
+**Fix.** `ExecutionContext.fs_root` is now explicit: injected executors (fixtures) use the sandbox
+state root, a live apply uses the real `/`. Config writes, migration sources and capability probes
+use `fs_root`; journal/checkpoints/ownership stay in `state_root`. Validators that check
+engine-owned state accept `state_root` as a second search root. Journal `_probe` does the same for
+`checkpoint`/`ownership` checks. `cmd_apply` passes the selected root; `--verify` passes the state
+root to `validate_system`.
+
+**Regression guards.** `test_system_root_separates_file_mutations_from_engine_state` and the full
+fixture/G6 suites (which still run entirely in the sandbox).
+
+## Cycle 34 — upstream presets omit fallback, and root cannot query a user bus
+
+**Symptom.** `--verify` on the applied VM failed four capabilities:
+`kernel-fallback`, `audio-pipewire`, `migration-recovery`, `ownership-enforcement`.
+
+**Root cause.** Sunshine/Arch `linux.preset` declares only `PRESETS=('default')`, so no fallback
+image existed. `systemctl --user is-active pipewire` run as root has no user bus. The two
+engine-owned capabilities still probed only the system root after cycle 33.
+
+**Fix.** `GenerateInitramfs` now builds the fallback explicitly with
+`mkinitcpio -k /boot/vmlinuz-<preset> -g /boot/initramfs-<preset>-fallback.img -S autodetect`
+when the preset does not provide one. The audio probe falls back to `pacman -Q pipewire` only for
+the specific no-user-bus error, so tamper markers that return a real `inactive` answer still fail
+closed. The two engine-owned validators now accept `state_root`.
+
+**Regression guards.** `test_fallback_image_is_generated_when_preset_omits_it` and
+`./test-post-migration.sh` (audio tamper case still detected).
+
+## Live VM proof (cycles 29–34)
+
+After each repair the engine was repackaged into `/tmp/eve/evolution-engine` on `SunshineOS-Audit`
+and the full loop was repeated with a root apply against `/tmp/eve-state`:
+
+- final apply: `status success`, 21 completed operations, no errors;
+- fallback image created by the engine itself after the file was deliberately removed;
+- `--verify`: 18 of 18 capabilities passed on the real migrated system;
+- second apply: `changed False` (idempotent);
+- tamper: removing `migration/checkpoints` made `--verify` fail with `recovery-checkpoints`, and
+  restoring it returned to 18/18.
+
 ## Current suite
 
 ```
-Python: 126 tests — OK
+Python: 132 tests — OK
 Rust:   5 tests — OK
 Stage A end-to-end: verify OK, handoff OK, receipt OK, tamper rejected
 Chained rotation: OK; self-signed/untrusted/disabled/unapproved rejected

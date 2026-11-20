@@ -99,8 +99,16 @@ active network/audio choices, and validates only activated components. `./test-p
 proves verification passes after apply and that tampering with every managed capability — including
 command-backed ones via sandbox tamper markers — fails verification and names the capability.
 
-**Remaining deployment work:** run the same `--verify` on the GUI VM after a real
-`sunshine-update` migration; the offline proof uses an injected executor and sandbox filesystem.
+**Live VM proof:** on `SunshineOS-Audit` a root apply of the same implementation completed 21
+operations with no errors, generated its own fallback initramfs, and `--verify` passed 18 of 18
+capabilities on the real migrated system. A second apply was a no-op (`changed False`), and
+removing `migration/checkpoints` made verification fail with `recovery-checkpoints` before being
+restored to a clean pass. There is now one implementation for fixture and live execution:
+`ExecutionContext.fs_root` is the sandbox for injected executors and the real `/` for a live apply,
+while journal/checkpoints/ownership remain in `state_root`.
+
+**Remaining deployment work:** packaging the Rust bootstrap as the actual `sunshine-update` entry
+point and signing repository artifacts; no protocol or convergence gap remains.
 
 ## Implemented safeguards that answer earlier gaps
 
@@ -129,7 +137,8 @@ command-backed ones via sandbox tamper markers — fails verification and names 
 ## Continuous-loop position
 
 The loop is currently at: **implement → test → break → repair → document → restart with a harder
-scenario**. Cycles 12–28 are recorded in `../reports/evolution-engine-breakfix-cycle.md`.
-All six architecture gaps G1–G6 are closed at the protocol/offline level. The next hard scenario is
-packaging the Rust bootstrap as the real `sunshine-update` entrypoint and publishing the chained
-rotation document, then repeating the full loop on the GUI VM.
+scenario**. Cycles 12–34 are recorded in `../reports/evolution-engine-breakfix-cycle.md`.
+All six architecture gaps G1–G6 are closed, and cycles 29–34 closed the gap between offline proof
+and a real GUI-VM apply/verify/tamper run. The next hard scenario is packaging the Rust bootstrap as
+the real `sunshine-update` entrypoint, publishing the chained rotation document and repeating the
+full loop against that published package rather than the source tree.

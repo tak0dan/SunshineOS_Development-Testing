@@ -82,6 +82,17 @@ class TargetManifestTests(unittest.TestCase):
         self.assertEqual(embedded, from_file)
         self.assertEqual(load_target(ENGINE_ROOT / "src" / "target" / "current.toml"), embedded)
 
+    def test_target_packages_exist_in_the_published_repository(self):
+        # Names that were never published by the [sunshine] repo make a real
+        # migration fail with "target not found". Manage that state with the
+        # real package that owns /etc/sunshine and the ownership tooling.
+        phantom = {"sunshine-config", "sunshine-ownership", "sunshine-recovery", "sunshine-agent"}
+        declared = set()
+        for packages in load_target().package_sets.values():
+            declared.update(packages)
+        self.assertFalse(phantom & declared, f"unpublished packages: {sorted(phantom & declared)}")
+        self.assertIn("sunshine-base", declared)
+
     def test_profiles_declare_capabilities_packages_and_conflicts(self):
         profiles = load_profiles()
         self.assertEqual(set(profiles), SUPPORTED_PROFILES)

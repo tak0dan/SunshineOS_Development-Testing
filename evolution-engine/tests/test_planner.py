@@ -278,6 +278,35 @@ class PlannerTests(unittest.TestCase):
         self.assertTrue(result.dry_run)
         self.assertTrue(all(op.params.get("dry_run") is True for op in result.operations))
 
+    def test_desktop_profile_enables_only_a_published_service(self) -> None:
+        # sunshine-profiles.service is not shipped by any published package.
+        # The profile tree is declarative; the published sunshine-base package
+        # provides sunshine-apps.service for finishing chosen app setup.
+        result = plan(make_pure_arch(), make_target())
+        services = ops_of(result, OpType.ENABLE_SERVICE)
+        self.assertTrue(services)
+        for operation in services:
+            self.assertNotEqual(operation.params.get("unit"), "sunshine-profiles")
+            self.assertNotEqual(operation.params.get("service"), "sunshine-profiles")
+        self.assertTrue(any(
+            operation.params.get("service") == "sunshine-apps"
+            or operation.params.get("unit") == "sunshine-apps"
+            for operation in services
+        ))
+
+    def test_kernel_preset_is_real_kernel_package_not_release_version(self) -> None:
+        # The release version (e.g. 2026.1) is not a mkinitcpio preset. On a
+        # real Arch machine only /etc/mkinitcpio.d/<package>.preset exists.
+        result = plan(make_pure_arch(), make_target())
+        kernels = ops_of(result, OpType.INSTALL_KERNEL)
+        initramfs = ops_of(result, OpType.GENERATE_INITRAMFS)
+        self.assertTrue(kernels and initramfs)
+        for operation in initramfs:
+            self.assertEqual(operation.params.get("preset"), "linux")
+            self.assertNotEqual(operation.params.get("preset"), "6.6.1")
+        for operation in kernels:
+            self.assertEqual(operation.params.get("package"), "linux")
+
     # ------------------------------------------------------------------ #
     # Checkpoints for destructive operations
     # ------------------------------------------------------------------ #

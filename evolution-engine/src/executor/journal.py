@@ -363,7 +363,8 @@ class Journal:
 
     def read_actual_state(self, root: str | Path | None = None, execute: Optional[Execute] = None,
                           op_ids: Optional[Iterable[str]] = None,
-                          journal_state: Optional[JournalState] = None) -> ActualState:
+                          journal_state: Optional[JournalState] = None,
+                          state_root: Optional[str | Path] = None) -> ActualState:
         """Probe the real machine for each journalled operation.
 
         This is intentionally independent of the journal's ``status`` fields.
@@ -382,7 +383,8 @@ class Journal:
             detail = state.details.get(entry.id, {})
             verify = dict(detail.get("verify") or {})
             kind, targets, expected, present, confidence, evidence = _probe(
-                entry, detail, verify, root_path, ex
+                entry, detail, verify, root_path, ex,
+                Path(state_root) if state_root is not None else None,
             )
             actual.checks[entry.id] = ActualCheck(
                 op_id=entry.id, kind=kind, expected_present=expected,
@@ -452,8 +454,13 @@ def _safe_args(values: Iterable[Any]) -> list[str]:
 
 
 def _probe(entry: JournalEntry, detail: dict[str, Any], verify: dict[str, Any],
-           root: Path, ex: Execute) -> tuple[str, list[str], Optional[bool], bool, str, list[str]]:
-    """Return (kind, targets, expected, present, confidence, evidence)."""
+           root: Path, ex: Execute, state_root: Optional[Path] = None) -> tuple[str, list[str], Optional[bool], bool, str, list[str]]:
+    """Return (kind, targets, expected, present, confidence, evidence).
+
+    ``root`` is the transformed filesystem (live ``/`` or fixture sandbox);
+    ``state_root`` holds engine bookkeeping such as checkpoints and ownership
+    records, which must be probed where they were actually written.
+    """
     kind = str(verify.get("kind") or _infer_kind(entry.operation))
     expected = verify.get("expected_present")
     if isinstance(expected, str):
@@ -494,6 +501,16 @@ def _probe(entry: JournalEntry, detail: dict[str, Any], verify: dict[str, Any],
             return kind, [unit], expected, False, "unknown", evidence
         return kind, [unit], expected, bool(rc_result), "high", evidence
 
+    # Commands that run against the live filesystem (mkinitcpio writes to the
+    # real /boot) must be probed through the executor, not against state_root.
+    # Fixture executors answer the same command from their sandbox, so this
+    # keeps fail-closed verification in both modes.
+    probe_cmd = verify.get("command")
+    if probe_cmd:
+        present = probe_command(str(probe_cmd),
+                                lambda rc, o, e: rc == 0 and bool(o.strip()))
+        return kind, targets, expected, bool(present), "high" if present is not None else "unknown", evidence
+
     if kind in ("file", "checkpoint", "ownership", "initramfs"):
         params = detail.get("params") or {}
         rel = verify.get("path") or params.get("path") or ""
@@ -505,9 +522,10 @@ def _probe(entry: JournalEntry, detail: dict[str, Any], verify: dict[str, Any],
                 rel = str(ref)
         if not rel:
             return kind, [], expected, False, "unknown", evidence
+        probe_root = state_root if kind in ("checkpoint", "ownership") and state_root is not None else root
         p = Path(str(rel))
         if not p.is_absolute():
-            p = root / p
+            p = probe_root / p
         present = p.exists()
         evidence.append(f"exists({p}) -> {present}")
         if kind == "checkpoint" and not present and detail.get("checkpoint"):
@@ -527,7 +545,7 @@ def _probe(entry: JournalEntry, detail: dict[str, Any], verify: dict[str, Any],
         cap = str(verify.get("capability") or (detail.get("params") or {}).get("capability") or entry.component)
         try:
             from ..validation.validator import validate_capability  # type: ignore
-            report = validate_capability(cap, root, ex)
+            report = validate_capability(cap, root, ex, state_root=state_root)
             present = bool(report.passed)
             evidence.append(report.detail)
         except Exception:

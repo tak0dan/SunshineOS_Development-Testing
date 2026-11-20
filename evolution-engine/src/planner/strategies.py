@@ -63,8 +63,8 @@ GENERIC_ARCH_CAPABILITIES = frozenset({
 # Used only when the target does not declare a package set for a component.
 DEFAULT_PACKAGES: dict[str, list[str]] = {
     "core": ["base", "systemd", "pacman"],
-    "configuration": ["sunshine-config"],
-    "ownership": ["sunshine-ownership"],
+    "configuration": ["sunshine-base"],
+    "ownership": ["sunshine-base"],
     "kernel_management": ["linux", "mkinitcpio"],
     "boot_integration": ["efibootmgr", "grub"],
     "recovery": ["sunshine-recovery"],
@@ -394,14 +394,20 @@ def plan_kernel_management(ctx: ComponentContext) -> list[Operation]:
         or "kernel-fallback" in ctx.missing_capabilities
     )
     if needs_kernel:
+        # The mkinitcpio preset is the kernel package name (e.g. ``linux``),
+        # not the Sunshine release version. On a real Arch system only
+        # /etc/mkinitcpio.d/linux.preset exists, so using the release version
+        # here fails with "Failed to load preset: /etc/mkinitcpio.d/2026.1.preset".
+        preset = ctx.packages[0] if ctx.packages else "linux"
         emitted.append(ops.install_kernel(
             version,
-            package=ctx.packages[0] if ctx.packages else None,
+            package=preset,
             component=ctx.spec.id,
             lifecycle=ctx.lifecycle,
         ))
         emitted.append(ops.generate_initramfs(
             version,
+            preset=preset,
             fallback=True,
             component=ctx.spec.id,
             lifecycle=ctx.lifecycle,
@@ -497,6 +503,11 @@ def plan_desktop_integration(ctx: ComponentContext) -> list[Operation]:
         or "desktop-session-discovery" in ctx.missing_capabilities
     )
     if needs_profiles and not ctx.outdated:
+        # Profile management is delivered by the declarative profile tree.
+        # The published sunshine-base package provides sunshine-apps.service
+        # to finish the chosen app/profile setup; there is no
+        # sunshine-profiles.service, and enabling a unit no package provides
+        # fails on a real system.
         emitted.append(ops.create_configuration(
             "etc/sunshine/profiles/default.toml",
             capabilities=["sunshine-profile-management"],
@@ -504,7 +515,7 @@ def plan_desktop_integration(ctx: ComponentContext) -> list[Operation]:
             lifecycle=ctx.lifecycle,
         ))
         emitted.append(ops.enable_service(
-            "sunshine-profiles",
+            "sunshine-apps",
             component=ctx.spec.id,
             lifecycle=ctx.lifecycle,
         ))

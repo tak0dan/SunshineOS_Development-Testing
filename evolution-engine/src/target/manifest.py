@@ -101,8 +101,8 @@ require_signed_packages = true
 
 [package_sets]
 base = ["base", "systemd", "pacman", "dbus", "sudo"]
-configuration = ["sunshine-config", "jq"]
-ownership = ["sunshine-ownership"]
+configuration = ["sunshine-base", "jq"]
+ownership = ["sunshine-base"]
 kernel_management = ["linux", "linux-headers", "linux-firmware", "mkinitcpio"]
 boot_integration = ["os-prober"]
 recovery = ["rsync", "btrfs-progs"]

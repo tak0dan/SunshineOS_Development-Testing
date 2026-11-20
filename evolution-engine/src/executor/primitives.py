@@ -55,6 +55,7 @@ class ExecutionContext:
 
     state_root: Path
     execute: Execute
+    system_root: Optional[Path] = None
     checkpoint: Optional[Callable[..., Any]] = None
     validator: Optional[Callable[..., Any]] = None
     dry_run: bool = False
@@ -72,7 +73,18 @@ class ExecutionContext:
 
     @property
     def root(self) -> Path:
+        """Engine state root: journal, checkpoints, merge records."""
         return Path(self.state_root)
+
+    @property
+    def fs_root(self) -> Path:
+        """Filesystem being transformed: live ``/`` or a fixture sandbox.
+
+        File mutations and capability probes must use this root; only engine
+        bookkeeping belongs under ``state_root``. A real apply writes actual
+        config into the system root, so verification sees the same tree.
+        """
+        return Path(self.system_root) if self.system_root is not None else self.root
 
     def note_checkpoint(self, ref: str) -> None:
         self.checkpoint_ref = str(ref)
@@ -326,7 +338,7 @@ def three_way_merge(base: str, ours: str, theirs: str) -> tuple[bool, str, str]:
 def _write_config(op: Operation, context: ExecutionContext, rel: str, content: str) -> Result:
     reversible = op.reversible
     try:
-        target = _managed_path(context.root, rel)
+        target = _managed_path(context.fs_root, rel)
     except ValueError as exc:
         return _refuse(str(exc))
     if not _destruction_allowed(context, op, [rel, op.component]):
@@ -417,7 +429,7 @@ def migrate_configuration(op: Operation, context: ExecutionContext) -> Result:
     if not source:
         return _refuse("MigrateConfiguration requires source_path")
     try:
-        source_path = _managed_path(context.root, source)
+        source_path = _managed_path(context.fs_root, source)
     except ValueError as exc:
         return _refuse(str(exc))
     name = str(op.params.get("name") or op.component or op.id)
@@ -552,20 +564,49 @@ def generate_initramfs(op: Operation, context: ExecutionContext) -> Result:
     if not _valid_name(preset):
         return _refuse("invalid initramfs preset")
     rel = f"boot/initramfs-{preset}.img"
-    target = context.root / rel
+    target = context.fs_root / rel
+    # mkinitcpio writes to the live /boot, not to state_root. Probe through the
+    # executor so a real apply verifies the image it actually generated while
+    # fixture executors answer the same command from their sandbox.
+    probe = f"ls /boot/initramfs-{preset}*.img"
+    verify = _verify("initramfs", command=probe, path=rel, expected=True)
+    want_fallback = bool(op.params.get("fallback", True))
+    fallback_rel = f"/boot/initramfs-{preset}-fallback.img"
+
+    def ensure_fallback() -> tuple[bool, str, bool]:
+        """Return (ok, output, changed); upstream presets often omit fallback."""
+        if not want_fallback:
+            return True, "", False
+        ok_rc, _, _ = _exec(context, f"ls /boot/initramfs-{preset}*-fallback.img 2>/dev/null")
+        if ok_rc:
+            return True, "", False
+        # Upstream Sunshine/Arch presets declare only the default image. Build
+        # the fallback explicitly without the autodetect hook so it boots on
+        # different hardware, which is the point of the fallback capability.
+        command = (f"mkinitcpio -k {_q('/boot/vmlinuz-' + preset)} "
+                   f"-g {_q(fallback_rel)} -S autodetect")
+        ok, out, err = _exec(context, command)
+        return ok, (err or out or command).strip(), (ok and not context.dry_run)
+
     if target.exists() and not context.dry_run:
-        return Result(True, output=f"initramfs already present: {rel}", changed=False,
-                      metadata={"verify": _verify("initramfs", path=rel, expected=True),
-                                "checkpoint": context.checkpoint_ref})
+        ok, output, changed = ensure_fallback()
+        if not ok:
+            return Result(False, output=output, detail="fallback initramfs generation failed")
+        return Result(True, output=f"initramfs already present: {rel}" + (f"; {output}" if output else ""),
+                      changed=changed,
+                      metadata={"verify": verify, "checkpoint": context.checkpoint_ref})
     full = bool(op.params.get("all") or op.params.get("presets"))
     cmd = "mkinitcpio -P" if full else f"mkinitcpio -p {_q(preset)}"
     ok, out, err = _exec(context, cmd)
     if not ok:
         return Result(False, output=err or out, detail="initramfs generation failed")
-    return Result(True, output=out.strip() or cmd, changed=not context.dry_run,
+    ok, fb_out, fb_changed = ensure_fallback()
+    if not ok:
+        return Result(False, output=fb_out, detail="fallback initramfs generation failed")
+    return Result(True, output="\n".join(x for x in (out.strip() or cmd, fb_out) if x),
+                  changed=not context.dry_run or fb_changed,
                   detail="initramfs generated after checkpoint",
-                  metadata={"verify": _verify("initramfs", path=rel, expected=True),
-                            "checkpoint": context.checkpoint_ref, "command": cmd})
+                  metadata={"verify": verify, "checkpoint": context.checkpoint_ref, "command": cmd})
 
 
 def install_boot_entry(op: Operation, context: ExecutionContext) -> Result:
@@ -656,7 +697,7 @@ def validate_capability(op: Operation, context: ExecutionContext) -> Result:
     evidence: list[str] = []
     if context.validator is not None:
         try:
-            report = context.validator(cap, str(context.root), context.execute, context.observed)
+            report = context.validator(cap, str(context.fs_root), context.execute, context.observed)
             passed = bool(getattr(report, "passed", report))
             evidence.append(str(getattr(report, "detail", "injected validator")))
         except TypeError:
@@ -665,7 +706,8 @@ def validate_capability(op: Operation, context: ExecutionContext) -> Result:
     if passed is None:
         try:
             from ..validation.validator import validate_capability as probe  # type: ignore
-            report = probe(cap, context.root, context.execute, context.observed)
+            report = probe(cap, context.fs_root, context.execute, context.observed,
+                           state_root=context.root)
             passed = bool(report.passed)
             evidence.append(report.detail)
         except Exception as exc:

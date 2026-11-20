@@ -223,20 +223,24 @@ def cmd_apply(root: str, state_root: str, resume: bool, dry_run: bool,
         # Materialize the source tree so a later --verify probes the migrated
         # sandbox, not the pristine fixture. Dry runs remain side-effect free.
         write_apply_marker(fixture_name, state_root)
+    # An injected executor (fixture) stages effects inside state_root; a live
+    # apply mutates and verifies the real filesystem. Keeping these roots
+    # separate lets one implementation serve both without path mismatches.
+    system_root = Path(state_root) if execute is not None else Path(root)
     result = execute_plan(plan, state_root=state_root, execute=execute,
                           resume=resume, dry_run=dry_run, observed=observed,
-                          adapters=adapters)
+                          adapters=adapters, system_root=system_root)
     print(_json(result))
     return 0 if result.status in ("success", "no-op", "dry_run") else 1
 
 
-def cmd_verify(root: str, execute=None, trust=None) -> int:
+def cmd_verify(root: str, execute=None, trust=None, state_root=None) -> int:
     if trust is not None and not trust.passed:
         print("Stage A trust verification failed:\n" + _json(trust.to_dict()), file=sys.stderr)
         return 3
     observed = _discover(root, execute)
     target, _ = _resolve(root, observed)
-    reports = validate_system(observed, target, root=root, execute=execute)
+    reports = validate_system(observed, target, root=root, execute=execute, state_root=state_root)
     serialized = [r.to_dict() for r in reports]
     print(_json({"passed": all(r.passed for r in reports), "reports": serialized}))
     return 0 if all(r.passed for r in reports) else 1
@@ -340,7 +344,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     if a.plan:
         return cmd_plan(root, execute, trust)
     if a.verify:
-        return cmd_verify(root, execute, trust)
+        return cmd_verify(root, execute, trust, a.state_root)
     if a.apply:
         return cmd_apply(root, a.state_root, a.resume, a.dry_run, a.decide, execute,
                          trust, adapters, a.fixture)

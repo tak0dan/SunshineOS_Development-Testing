@@ -73,11 +73,14 @@ class FakeSystem:
         if cmd.startswith("systemctl is-system-running"):
             return 0, "running\n", ""
         if cmd.startswith("mkinitcpio"):
-            preset = args[3] if len(args) > 3 else "linux"
             if self.root is not None:
-                boot = self.root / "boot"
-                boot.mkdir(parents=True, exist_ok=True)
-                (boot / f"initramfs-{preset}.img").write_bytes(b"initramfs")
+                if "-g" in args:
+                    image = self.root / Path(args[args.index("-g") + 1].lstrip("/"))
+                else:
+                    preset = args[3] if len(args) > 3 else "linux"
+                    image = self.root / "boot" / f"initramfs-{preset}.img"
+                image.parent.mkdir(parents=True, exist_ok=True)
+                image.write_bytes(b"initramfs")
             return 0, "Image generation complete.\n", ""
         if cmd.startswith("efibootmgr -v"):
             lines = [f"Boot000{i}* {label}" for i, label in enumerate(sorted(self.boot_entries), 1)]
@@ -353,6 +356,75 @@ class ExecutorTests(unittest.TestCase):
             result = dispatch(operation, context)
             self.assertIsInstance(result, Result, kind.value)
             self.assertTrue(result.ok, f"{kind.value}: {result.output}")
+
+    def test_fallback_image_is_generated_when_preset_omits_it(self):
+        # Upstream Sunshine/Arch presets declare only the default image, but
+        # the target promises kernel-fallback. The executor must build it
+        # explicitly without the autodetect hook.
+        plan = removal_plan()
+        plan.operations += [
+            op("cp", OpType.CREATE_CHECKPOINT),
+            op("kern", OpType.INSTALL_KERNEL, params={"version": "linux", "package": "linux"},
+               requires=["cp"]),
+            op("init", OpType.GENERATE_INITRAMFS, params={"preset": "linux", "fallback": True},
+               requires=["kern"]),
+        ]
+        result = execute_plan(plan, self.root, self.fake)
+        self.assertEqual(result.status, "success", result.errors)
+        self.assertTrue(any("-g /boot/initramfs-linux-fallback.img" in c and "-S autodetect" in c
+                            for c in self.fake.commands))
+        self.assertTrue((self.root / "boot/initramfs-linux-fallback.img").exists())
+
+    def test_system_root_separates_file_mutations_from_engine_state(self):
+        # A live apply writes config into the real filesystem while keeping
+        # journal/checkpoints in the state root. Both must be verifiable.
+        system_root = Path(self.tmp.name) / "system"
+        system_root.mkdir()
+        state_root = Path(self.tmp.name) / "state2"
+        state_root.mkdir()
+        fake = FakeSystem()
+        fake.root = system_root
+        plan = Plan(id="root-split", source={}, target={}, operations=[
+            op("cp", OpType.CREATE_CHECKPOINT),
+            op("cfg", OpType.CREATE_CONFIGURATION,
+               params={"name": "demo", "path": "etc/sunshine/config/demo.conf", "content": "ok\n"},
+               requires=["cp"]),
+        ])
+        result = execute_plan(plan, state_root, fake, system_root=system_root)
+        self.assertEqual(result.status, "success", result.errors)
+        self.assertTrue((system_root / "etc/sunshine/config/demo.conf").exists())
+        self.assertFalse((state_root / "etc/sunshine/config/demo.conf").exists())
+        self.assertTrue((state_root / "migration/journal/journal.jsonl").exists())
+
+    def test_initramfs_probe_uses_executor_not_state_root(self):
+        # A live mkinitcpio writes to the real /boot, so a state-root-relative
+        # path check would always report a false failure. Command probes are
+        # answered by the injected executor (fixtures read their sandbox).
+        journal = Journal(self.root, "initramfs-probe")
+        journal.complete("init", Result(True, "generated"), {
+            "operation": "GenerateInitramfs",
+            "params": {"preset": "linux"},
+            "verify": {"kind": "initramfs", "path": "boot/initramfs-linux.img",
+                       "command": "ls /boot/initramfs-linux*.img", "expected_present": True},
+        })
+        self.assertFalse((self.root / "boot/initramfs-linux.img").exists())
+
+        def present(cmd):
+            self.assertEqual(cmd, "ls /boot/initramfs-linux*.img")
+            return 0, "/boot/initramfs-linux.img\n/boot/initramfs-linux-fallback.img\n", ""
+
+        actual = journal.read_actual_state(execute=present, op_ids=["init"])
+        check = actual.checks["init"]
+        self.assertTrue(check.present)
+        self.assertEqual(check.expected_present, True)
+        self.assertEqual(check.confidence, "high")
+        self.assertTrue(any("ls /boot/initramfs-linux" in line for line in check.evidence))
+
+        def absent(cmd):
+            return 1, "", "no such file"
+
+        check = journal.read_actual_state(execute=absent, op_ids=["init"]).checks["init"]
+        self.assertFalse(check.present)  # fail closed when the image is really missing
 
 
 if __name__ == "__main__":
