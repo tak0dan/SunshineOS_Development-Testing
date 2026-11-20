@@ -5,6 +5,7 @@ import datetime
 import hashlib
 import json
 import os
+import stat
 import subprocess
 import tempfile
 from dataclasses import dataclass, field
@@ -437,6 +438,19 @@ def verify_receipt(
     return not errors, payload, tuple(errors)
 
 
+def validsig_matches(status: str, fingerprint: str) -> bool:
+    """Match only the signer field of a ``[GNUPG:] VALIDSIG`` status line."""
+    expected = "".join(fingerprint.split()).upper()
+    if not expected:
+        return False
+    for line in status.splitlines():
+        parts = line.split()
+        if (parts[:2] == ["[GNUPG:]", "VALIDSIG"] and len(parts) > 2
+                and "".join(parts[2].split()).upper() == expected):
+            return True
+    return False
+
+
 def gpg_verifier(keyring: str | Path, gpg: str = "gpg") -> Verifier:
     """Create a verifier backed by a dedicated GPG keyring.
 
@@ -445,6 +459,10 @@ def gpg_verifier(keyring: str | Path, gpg: str = "gpg") -> Verifier:
     dependencies.
     """
     keyring_path = Path(keyring).resolve()
+    if not keyring_path.is_file():
+        raise FileNotFoundError(f"trust keyring not found: {keyring_path}")
+    if stat.S_IMODE(keyring_path.stat().st_mode) & 0o022:
+        raise PermissionError(f"trust keyring is group/world writable: {keyring_path}")
 
     def verify(fingerprint: str, payload: bytes, signature: str) -> bool:
         with tempfile.TemporaryDirectory(prefix="sunshine-trust-") as tmp:
@@ -472,13 +490,6 @@ def gpg_verifier(keyring: str | Path, gpg: str = "gpg") -> Verifier:
             )
             if result.returncode != 0:
                 return False
-            expected = "".join(fingerprint.split()).upper()
-            for line in result.stdout.splitlines():
-                parts = line.split()
-                if (parts[:2] == ["[GNUPG:]", "VALIDSIG"]
-                        and any("".join(part.split()).upper() == expected
-                                for part in parts[2:])):
-                    return True
-            return False
+            return validsig_matches(result.stdout, fingerprint)
 
     return verify

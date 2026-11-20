@@ -18,6 +18,29 @@ fn normalize_fingerprint(value: &str) -> String {
     value.chars().filter(|c| !c.is_whitespace()).collect::<String>().to_uppercase()
 }
 
+/// Match only the signer field of a `[GNUPG:] VALIDSIG` status line.
+///
+/// Later fields are timestamps and key metadata; scanning them could accept a
+/// signature made by a different key when one of those fields happens to equal
+/// the pinned fingerprint.
+fn validsig_matches(status: &str, expected: &str) -> bool {
+    let wanted = normalize_fingerprint(expected);
+    if wanted.is_empty() {
+        return false;
+    }
+    status.lines().any(|line| {
+        let fields: Vec<&str> = line.split_whitespace().collect();
+        fields.first().copied() == Some("[GNUPG:]")
+            && fields.get(1).copied() == Some("VALIDSIG")
+            && fields.get(2).map(|f| normalize_fingerprint(f)) == Some(wanted.clone())
+    })
+}
+
+fn cleanup_temp(dir: &Path) -> Result<(), String> {
+    fs::remove_dir_all(dir)
+        .map_err(|e| format!("cannot clean temporary directory {}: {}", dir.display(), e))
+}
+
 fn decode_hex(value: &str) -> Result<Vec<u8>, String> {
     let clean: String = value.chars().filter(|c| !c.is_whitespace()).collect();
     if clean.len() % 2 != 0 {
@@ -61,9 +84,7 @@ pub fn verify_detached(
     signature_hex: &str,
     gpg: &str,
 ) -> Result<(), String> {
-    if !keyring.is_file() {
-        return Err(format!("trust keyring not found: {}", keyring.display()));
-    }
+    ensure_keyring_permissions(keyring)?;
     let expected = normalize_fingerprint(expected_fingerprint);
     if expected.is_empty() {
         return Err("signature has no expected fingerprint".to_owned());
@@ -72,8 +93,14 @@ pub fn verify_detached(
     let dir = temp_dir()?;
     let payload_path = dir.join("payload");
     let sig_path = dir.join("payload.sig");
-    write_secret(&payload_path, payload)?;
-    write_secret(&sig_path, &signature)?;
+    if let Err(err) = write_secret(&payload_path, payload) {
+        cleanup_temp(&dir)?;
+        return Err(err);
+    }
+    if let Err(err) = write_secret(&sig_path, &signature) {
+        cleanup_temp(&dir)?;
+        return Err(err);
+    }
 
     // Use an empty GNUPGHOME so host configuration (notably keyboxd) cannot
     // cause --keyring to be ignored. The dedicated keyring is the only trust
@@ -92,9 +119,12 @@ pub fn verify_detached(
             payload_path.to_string_lossy().as_ref(),
         ])
         .output()
-        .map_err(|e| format!("cannot run {}: {}", gpg, e))?;
-    let status = String::from_utf8_lossy(&output.stdout);
-    let _ = fs::remove_dir_all(&dir);
+        .map_err(|e| {
+            let _ = cleanup_temp(&dir);
+            format!("cannot run {}: {}", gpg, e)
+        })?;
+    let status = String::from_utf8_lossy(&output.stdout).into_owned();
+    cleanup_temp(&dir)?;
 
     if !output.status.success() {
         return Err(format!(
@@ -106,12 +136,7 @@ pub fn verify_detached(
     // gpg selects the key from the signature. Requiring the VALIDSIG status to
     // name the declared signer prevents a different pinned key from being used
     // while metadata claims another fingerprint.
-    let valid = status.lines().any(|line| {
-        let fields: Vec<&str> = line.split_whitespace().collect();
-        fields.first().copied() == Some("[GNUPG:]")
-            && fields.get(1).copied() == Some("VALIDSIG")
-            && fields.iter().skip(2).any(|f| normalize_fingerprint(f) == expected)
-    });
+    let valid = validsig_matches(&status, &expected);
     if !valid {
         return Err(format!("signature was not made by declared key {}", expected));
     }
@@ -130,7 +155,10 @@ pub fn sign_detached(
     let dir = temp_dir()?;
     let payload_path = dir.join("receipt");
     let sig_path = dir.join("receipt.sig");
-    write_secret(&payload_path, payload)?;
+    if let Err(err) = write_secret(&payload_path, payload) {
+        cleanup_temp(&dir)?;
+        return Err(err);
+    }
     let output = Command::new(gpg)
         .env("GNUPGHOME", gpg_home)
         .args([
@@ -145,17 +173,22 @@ pub fn sign_detached(
             payload_path.to_string_lossy().as_ref(),
         ])
         .output()
-        .map_err(|e| format!("cannot run {}: {}", gpg, e))?;
+        .map_err(|e| {
+            let _ = cleanup_temp(&dir);
+            format!("cannot run {}: {}", gpg, e)
+        })?;
     if !output.status.success() {
-        let _ = fs::remove_dir_all(&dir);
+        cleanup_temp(&dir)?;
         return Err(format!(
             "receipt signing failed: {}",
             String::from_utf8_lossy(&output.stderr).trim()
         ));
     }
-    let signature = fs::read(&sig_path)
-        .map_err(|e| format!("cannot read receipt signature: {}", e))?;
-    let _ = fs::remove_dir_all(&dir);
+    let signature = fs::read(&sig_path).map_err(|e| {
+        let _ = cleanup_temp(&dir);
+        format!("cannot read receipt signature: {}", e)
+    })?;
+    cleanup_temp(&dir)?;
     Ok(crate::sha256::hex(&signature))
 }
 
@@ -172,4 +205,41 @@ pub fn ensure_keyring_permissions(keyring: &Path) -> Result<(), String> {
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validsig_matches_only_signer_field() {
+        let fp = "2FEC611A7F97ED9A37294C90D16F3BE763A4B6BE";
+        let good = format!(
+            "[GNUPG:] VALIDSIG {} 2026-11-20 0 1 2 3 4 1 8 00\n",
+            fp
+        );
+        assert!(validsig_matches(&good, fp));
+        // The expected fingerprint appearing in a later metadata field is not
+        // proof that this key made the signature.
+        let wrong_signer = format!(
+            "[GNUPG:] VALIDSIG 1111111111111111111111111111111111111111 2026-11-20 {} 1 2 3 4 1 8 00\n",
+            fp
+        );
+        assert!(!validsig_matches(&wrong_signer, fp));
+        assert!(!validsig_matches("[GNUPG:] GOODSIG deadbeef\n", fp));
+        assert!(!validsig_matches("", fp));
+    }
+
+    #[test]
+    fn keyring_permissions_reject_writable_keyring() {
+        let dir = temp_dir().expect("temp dir");
+        let keyring = dir.join("keyring.gpg");
+        fs::write(&keyring, b"public key").expect("write keyring");
+        fs::set_permissions(&keyring, fs::Permissions::from_mode(0o666)).expect("chmod");
+        let err = ensure_keyring_permissions(&keyring).expect_err("writable keyring must fail");
+        assert!(err.contains("group/world writable"), "{}", err);
+        fs::set_permissions(&keyring, fs::Permissions::from_mode(0o600)).expect("chmod");
+        assert!(ensure_keyring_permissions(&keyring).is_ok());
+        cleanup_temp(&dir).expect("cleanup");
+    }
 }
