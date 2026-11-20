@@ -112,6 +112,19 @@ class CliFixtureTests(unittest.TestCase):
                 )
         self.assertEqual(code, 3)
 
+    def test_trust_report_requires_signed_receipt(self):
+        with tempfile.TemporaryDirectory(prefix="sunshine-cli-report-") as tmp:
+            report = Path(tmp) / "report.json"
+            report.write_text('{"passed": true}', encoding="utf-8")
+            code, _out, err = run_cli(
+                "--trust-report", str(report),
+                "--trust-policy", "/tmp/policy.json",
+                "--trust-keyring", "/tmp/keyring.gpg",
+                "--check",
+            )
+        self.assertEqual(code, 3)
+        self.assertIn("--trust-report requires --trust-receipt", err)
+
     def test_trust_index_requires_policy_and_keyring(self):
         code, out, err = run_cli("--trust-index", "/tmp/index.json", "--check")
         self.assertEqual(code, 3)

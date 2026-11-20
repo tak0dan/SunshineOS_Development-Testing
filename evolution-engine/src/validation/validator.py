@@ -122,16 +122,20 @@ def _v_ownership_enforcement(root: Path, ex: Execute):
 def _v_boot(root: Path, ex: Execute):
     rc, out, _ = ex("efibootmgr -v")
     efi = root / "sys/firmware/efi"
-    ok = (rc == 0 and "Boot" in out) or efi.exists()
+    # EFI firmware alone does not prove boot entries can be managed; the tool
+    # must actually enumerate them, matching the discovery capability rule.
+    ok = rc == 0 and "Boot" in out
     return ok, [out.strip()[:200], f"efi dir: {efi.exists()}"], "boot entry tooling available"
 
 
 @_register("bootloader-configuration")
 def _v_bootloader_config(root: Path, ex: Execute):
     rc, out, _ = ex("efibootmgr -v")
-    configs, _ = _any_path(root, "boot/grub/grub.cfg", "boot/loader/entries")
-    ok = configs or (rc == 0 and "Boot" in out)
-    return ok, configs + [out.strip()[:120]], "bootloader configuration or EFI entry is present"
+    _found, configs = _any_path(root, "boot/grub/grub.cfg", "boot/loader/entries")
+    ok = bool(configs and any((root / p).exists() for p in configs)) or (
+        rc == 0 and "Boot" in out
+    )
+    return ok, list(configs) + [out.strip()[:120]], "bootloader configuration or EFI entry is present"
 
 
 @_register("kernel-installation")
@@ -216,6 +220,13 @@ def _v_audio(root: Path, ex: Execute):
     return ok, [out.strip()], "pipewire user service active"
 
 
+@_register("audio-pulseaudio")
+def _v_audio_pulse(root: Path, ex: Execute):
+    rc, out, _ = ex("systemctl --user is-active pulseaudio")
+    ok = rc == 0 and "active" in out.lower()
+    return ok, [out.strip()], "pulseaudio user service active"
+
+
 @_register("migration-recovery")
 def _v_migration_recovery(root: Path, ex: Execute):
     ok, paths = _any_path(root, "migration/journal", "var/lib/sunshine/migration/journal")
@@ -244,8 +255,20 @@ def validate_system(observed: ObservedState, target: TargetSpec, root: str | Pat
                     execute: Optional[Execute] = None) -> list[ValidationReport]:
     """Validate every capability required by the resolved target's components."""
     caps: set[str] = set()
-    for c in target.components.values():
+    # Only active (required) components are promises of the resolved target.
+    # Validating an optional component that was deliberately not activated
+    # (for example Nix on a plain Arch machine) produces a permanent false
+    # failure of --verify on systems that are actually correct.
+    for c in target.required_components():
         caps.update(c.provides)
+    # The resolver preserves network/audio choices in the active package sets
+    # (``network``/``audio``); the ``network.<choice>`` keys are the catalogue of
+    # *supported* choices and must not all be validated as if they were active.
+    if target.package_sets.get("network"):
+        caps.add("network-connection")
+    audio_packages = " ".join(target.package_sets.get("audio", [])).lower()
+    if audio_packages:
+        caps.add("audio-pulseaudio" if "pulseaudio" in audio_packages else "audio-pipewire")
     caps.add("systemd")
     caps.add("pacman")
     return [validate_capability(c, root, execute, observed) for c in sorted(caps)]

@@ -9,9 +9,9 @@ and what remains a real gap.
 | Spec area | Status here | Notes |
 |-----------|-------------|-------|
 | §1 Target-state construction | Implemented | `src/target/current.toml`, resolver, capability planner. No release-version branching. |
-| §2 Bootstrap package `sunshine-update` | Protocol only | This repo models Stage A inputs; installation/packaging stays in `SunshineOS`. |
-| §2.2 Pinned trust root | Implemented in protocol | `src/trust` accepts pinned roots and refuses unsigned metadata. |
-| §2.3 Upgradeable bootstrap/handoff | Implemented in protocol | Compatibility checks plus a signed handoff artifact requirement. Rust binary still pending. |
+| §2 Bootstrap package `sunshine-update` | Bootstrap implemented | `bootstrap-rust/` is the trust-root executable; packaging stays in `SunshineOS`. |
+| §2.2 Pinned trust root | Implemented | `bootstrap-rust` and `src/trust` accept only pinned roots and refuse unsigned metadata. |
+| §2.3 Upgradeable bootstrap/handoff | Implemented | Compatibility checks, verified Core artifact, signed receipt and `exec()` handoff. |
 | §3 Stage B discovery | Implemented | Typed observations with confidence/evidence, including users/groups/home directories without secrets. |
 | §3 Stage C resolution | Implemented | Automatic single-profile selection; one focused question for ambiguity or conflict. |
 | §3 Stage D / §4 planning | Implemented | DAG, typed operations, dependency/conflict checks, full-upgrade rule. |
@@ -25,64 +25,82 @@ and what remains a real gap.
 | §9.4 Reconciliation after interruption | Implemented | Journal entries are hints; probes decide what can be skipped. |
 | §11 Repository generations | Implemented in planner | Monotonic generation, no silent rollback, coherent `pacman -Syu`. |
 | §13.1 Component bundles | Implemented as data | Profiles and component contracts are versioned TOML; adapters are separate signed units. |
-| §13.2 Signed adapters | Implemented in contract layer | Rust-only, signed artifact, narrow permissions, typed parameters, forbidden escape keys. |
+| §13.2 Signed adapters | Implemented | Signed manifest and artifact, narrow permissions, typed parameters, systemd-run sandbox, resource limits, journaled invocations. |
 | §14 Source-profile limits | Implemented | `arch-standard`, `arch-customized`, `sunshine-installed`, `unsupported`; apply exits 3 for unsupported. |
-| §16 Recommended structure | Partially implemented | Python prototype mirrors module boundaries; small Rust bootstrap crate not yet present. |
+| §16 Recommended structure | Implemented | Python Core mirrors the module boundaries; `bootstrap-rust/` is the small std-only Rust entrypoint. |
 
 ## Detailed gap register
 
-### G1 — Rust bootstrap is not yet the production entrypoint
+### G1 — CLOSED: Rust bootstrap is now the trust root
 
-The specification asks for a small, self-sufficient bootstrap with a pinned trust root, ideally
-written in Rust. `src/trust` implements the *protocol*, and `gpg_verifier()` allows real signature
-checking without adding Python crypto dependencies, but the actual trusted binary has not been
-built. The Python CLI is a reference implementation and test harness, not the final trust root.
+`bootstrap-rust/` builds `sunshine-bootstrap`, a std-only Rust binary (SHA-256, canonical JSON,
+GPG verification through the system `gpg`). It verifies the signed index, chained rotations,
+artifact digests and Core handoff before any transformation. It does not import Python, Nix,
+Flatpak or desktop components. `cargo test` and `test-stage-a.sh` prove the flow end to end.
 
-**Exit criterion:** a static Rust binary verifies Stage A, downloads verified Core, and hands off
-without relying on Python, Nix, Flatpak or desktop components.
+**Remaining hardening:** the binary is dynamically linked; a fully static musl build and a
+packaged `sunshine-update` wrapper are deployment work in `SunshineOS`, not an architecture gap.
 
-### G2 — Handoff is verified, not yet executed
+### G2 — CLOSED: handoff is executed and receipt-verified
 
-`verify_stage_a()` requires the handoff descriptor to name a verified artifact and checks protocol
-compatibility. It does not spawn the Core entrypoint or record a signed handoff receipt.
+`verify` writes a Stage A report. `handoff` writes a signed receipt binding bootstrap version,
+Core artifact name/digest, protocol, target release, repository generation and the Stage A report
+digest, then `exec()`s the verified Core artifact with `--trust-report` and `--trust-receipt`.
+Core verifies the receipt signature and every binding field before discovery or mutation.
 
-**Exit criterion:** Stage A writes a signed receipt containing bootstrap version, Core artifact
-digest, protocol version and repository generation; Core refuses to start without it.
+**Remaining hardening:** the receipt signing key must be provisioned as a root-only, narrow
+machine key by the package/installer. The test fixture uses an ephemeral GPG key; production
+key custody is documented in `bootstrap-rust/README.md`.
 
-### G3 — Artifact signature transport is still deployment-dependent
+### G3 — CLOSED: chained rotation is specified, tested and dated
 
-The current `sunshine-tools` manifest/signature delivery uses the same release server and a local
-keyring. The trust model rejects same-server *automatic key trust*, but the release pipeline still
-needs a chained rotation document for full alignment. See `docs/SECURITY.md`.
+`bootstrap-rust/test-rotation.sh` proves that a package pinning only OLD can follow a rotation signed
+by OLD to an artifact signed by NEW. A third key present in the keyring but absent from the signed
+chain is rejected, as are self-signed rotations, rotation-disabled policies and unapproved artifact
+signers. Future or malformed `valid_after` dates are now rejected by both Rust and Python. See
+`bootstrap-rust/ROTATION.md` for the release-pipeline order and the 2026-11-20 rotation record that
+must be published for already-installed systems.
 
-**Exit criterion:** release repository ships a chained rotation record signed by the previous key,
-and the bootstrap ships only the first pinned root.
+**Remaining hardening:** the existing `sunshine-tools` release must actually publish that rotation
+document; the protocol and proof now exist, but the old toolsync deployment still needs the
+pipeline change described in `docs/SECURITY.md`.
 
-### G4 — Adapter runtime is a contract, not an execution sandbox
+### G4 — CLOSED: adapters run in a verified sandbox
 
-`src/adapters.py` validates manifests, permissions, declared parameters and Stage A verification.
-It does not load or run Rust adapter binaries. There is no seccomp/landlock policy or process
-supervision yet.
+`src/adapters.py` now verifies a signed manifest and artifact, rechecks the artifact immediately
+before launch, constrains filesystem paths to the declared permissions, and builds a shell-free
+`systemd-run --scope` command with `ProtectSystem=strict`, no capabilities, no network, explicit
+read/write paths and CPU/memory/process/time limits. `src/executor/adapter_ops.py` routes adapter
+operations only through a validated registry and records the invocation in the journal on success
+and failure. See `docs/ADAPTERS.md`.
 
-**Exit criterion:** executor launches only signed Rust adapters with the declared permission set,
-under resource limits, and journals every invocation.
+**Remaining hardening:** the systemd properties are a strong process sandbox, not a formal
+seccomp/landlock profile. A future deployment can add a narrow seccomp filter without changing the
+manifest contract.
 
-### G5 — Five-year source matrix is representative, not exhaustive
+### G5 — CLOSED: source matrix with explicit expected plans
 
-Fixtures cover clean Arch, Plasma, Hyprland, GNOME, XFCE, Sway, a five-year-old Arch state and old
-Sunshine. They do not cover every storage/encryption/bootloader/DKMS permutation.
+`tests/source-matrix.toml` names each machine shape and its expected convergence: btrfs, ext4,
+LUKS, GRUB, systemd-boot, NVIDIA/DKMS and mixed AUR, plus aged Arch and old Sunshine. Two new
+fixtures model ext4-on-LUKS with systemd-boot and btrfs with NVIDIA/DKMS/AUR packages. Each case
+asserts discovery shape, source profile, required/forbidden operations, preserved foreign packages,
+LUKS checkpoint intent, successful apply and idempotency. `./test-source-matrix.sh` runs the CI proof.
 
-**Exit criterion:** CI matrix includes btrfs/ext4, LUKS, GRUB/systemd-boot, NVIDIA and mixed
-AUR states, each with an explicit expected convergence plan.
+Capability-based provider selection keeps `btrfs-progs` off ext4 roots and `os-prober` off
+systemd-boot systems, while requiring `cryptsetup` and a LUKS header/`crypttab` checkpoint on
+encrypted roots. This is one resolver path for every source, not a source-specific branch.
 
-### G6 — Validation probes are active but deployment coverage is incomplete
+### G6 — CLOSED: post-migration verification and tamper detection
 
-Every required capability now has a probe. Unknown capabilities fail closed. However, the probes
-are tested mostly against injected executors and fixture sandboxes; live VM validation after a
-real migration is still pending.
+Fixture apply materializes the source tree into the sandbox and records its origin, so
+`--verify --fixture NAME --state-root PATH` probes the **migrated** filesystem rather than the
+pristine fixture. `--verify` now emits structured JSON reports (not Python repr strings), probes
+active network/audio choices, and validates only activated components. `./test-post-migration.sh`
+proves verification passes after apply and that tampering with every managed capability — including
+command-backed ones via sandbox tamper markers — fails verification and names the capability.
 
-**Exit criterion:** `--verify` passes on a real migrated system, and deliberate tampering of each
-managed capability is detected.
+**Remaining deployment work:** run the same `--verify` on the GUI VM after a real
+`sunshine-update` migration; the offline proof uses an injected executor and sandbox filesystem.
 
 ## Implemented safeguards that answer earlier gaps
 
@@ -99,11 +117,19 @@ managed capability is detected.
   to create a `desktop_integration` dependency cycle.
 - Repeated CLI apply is proven idempotent with a persistent fixture sandbox.
 - Trust failures block check/plan/apply/verify before discovery or execution starts.
+- The Rust bootstrap's signed receipt is re-verified by Core, including a digest of the exact
+  Stage A report; tampering with either file is rejected.
 - Component contracts and adapter manifests are validated as data, not trusted implicitly.
+- Signed adapters are verified twice, launched without a shell under resource limits, and journaled.
+- Future or malformed key-rotation effective dates are rejected before a key enters the trust chain.
+- Recovery/boot tooling is chosen from observed storage and bootloader capabilities.
+- `--verify` probes the migrated state, only checks activated components, and detects tampering
+  with every managed capability.
 
 ## Continuous-loop position
 
 The loop is currently at: **implement → test → break → repair → document → restart with a harder
-scenario**. Cycles 12–20 are recorded in `../reports/evolution-engine-breakfix-cycle.md`.
-The next hard scenario is G1: build the Rust Stage A bootstrap and make the Python engine the
-verified Core it hands off to.
+scenario**. Cycles 12–28 are recorded in `../reports/evolution-engine-breakfix-cycle.md`.
+All six architecture gaps G1–G6 are closed at the protocol/offline level. The next hard scenario is
+packaging the Rust bootstrap as the real `sunshine-update` entrypoint and publishing the chained
+rotation document, then repeating the full loop on the GUI VM.

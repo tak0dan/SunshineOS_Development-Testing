@@ -47,9 +47,24 @@ python3 -m unittest discover -s tests -v
 ```
 
 Tests use fake `root` paths and injected `execute(cmd)` callables so no test touches the real
-system. Current suite: **106 tests, OK**. Coverage includes discovery, users, source compatibility,
-target resolution, contradictory decisions, Stage A trust, component contracts, adapters, planner,
-executor, interrupted resume, stale plans, CLI fixture fidelity and idempotency.
+system. Current suite: **117 tests, OK**. Coverage includes discovery, users, source compatibility,
+target resolution, contradictory decisions, Stage A trust, signed receipts, rotation dates,
+component contracts, signed adapter registration/sandbox/journaling, planner, executor, interrupted
+resume, stale plans, CLI fixture fidelity and idempotency.
+
+The Rust Stage A bootstrap has its own tests plus full GPG/handoff and rotation proofs:
+
+```bash
+cd bootstrap-rust
+cargo test
+./test-stage-a.sh
+./test-rotation.sh
+```
+
+`test-stage-a.sh` creates an ephemeral signing key, signs an index and Core artifact, runs the Rust
+`verify` and `handoff` commands, verifies the signed receipt from Python Core, and proves a tampered
+receipt is refused. `test-rotation.sh` pins only OLD, follows an OLD-signed rotation to a NEW-signed
+Core artifact, and rejects self-signed, untrusted, disabled and unapproved rotations/artifacts.
 
 For a host-independent CLI demo:
 
@@ -72,4 +87,10 @@ Read-only and dry-run commands never need a sandbox. Real fixture applies requir
 - [ ] `--apply` on a fixture with a failure stops and journals correctly
 - [ ] `--repair` resumes after simulated interruption
 - [ ] `--verify` fails closed for unknown capabilities
+- [ ] Rust Stage A writes a signed receipt and Core accepts it
+- [ ] Tampered receipt or report is refused before discovery
+- [ ] Chained rotation from the package-pinned key is accepted; self-signed/third-key rotations fail
+- [ ] Future rotation dates are refused before the new key enters the trust chain
+- [ ] Signed adapter is verified twice, launched in the sandbox and journaled on success/failure
+- [ ] Adapter operation without a validated registry is refused
 - [ ] VM: toolsync delivers current tools after key rotation

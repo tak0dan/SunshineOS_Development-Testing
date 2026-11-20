@@ -28,10 +28,16 @@ from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from src.adapters import AdapterRegistry  # noqa: E402
 from src.core import ObservedState, Plan  # noqa: E402
 from src.components import load_contracts, validate_contract_set  # noqa: E402
 from src.discovery import discover  # noqa: E402
-from src.fixtures import fixture_executor, fixture_root  # noqa: E402
+from src.fixtures import (  # noqa: E402
+    applied_fixture,
+    fixture_executor,
+    fixture_root,
+    write_apply_marker,
+)
 from src.target import (  # noqa: E402
     load_target,
     resolve_target,
@@ -39,7 +45,13 @@ from src.target import (  # noqa: E402
 )
 from src.planner import plan as build_plan  # noqa: E402
 from src.executor import execute_plan, ExecutionResult  # noqa: E402
-from src.trust import TrustPolicy, gpg_verifier, verify_stage_a  # noqa: E402
+from src.trust import (  # noqa: E402
+    StageAReport,
+    TrustPolicy,
+    gpg_verifier,
+    verify_receipt,
+    verify_stage_a,
+)
 from src.validation import validate_system, ValidationReport  # noqa: E402
 
 DEFAULT_ROOT = "/"
@@ -75,16 +87,59 @@ def _contract_validation(published_target) -> list[str]:
     return validate_contract_set(load_contracts(directory), published_target.components)
 
 
-def _stage_a(args, execute=None):
-    """Verify signed repository metadata when the caller supplies Stage A inputs."""
-    if not getattr(args, "trust_index", None):
+def _load_policy(path: str | None) -> TrustPolicy | None:
+    if not path:
         return None
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    return TrustPolicy.from_dict(data)
+
+
+def _stage_a(args, execute=None):
+    """Verify Stage A from signed index or a receipt written by Rust bootstrap."""
+    index = getattr(args, "trust_index", None)
+    report_path = getattr(args, "trust_report", None)
+    receipt_path = getattr(args, "trust_receipt", None)
+    if index and report_path:
+        raise ValueError("--trust-index and --trust-report are mutually exclusive")
+    if not index and not report_path:
+        return None
+    if report_path and not receipt_path:
+        raise ValueError("--trust-report requires --trust-receipt")
     if not getattr(args, "trust_policy", None) or not getattr(args, "trust_keyring", None):
-        raise ValueError("--trust-index requires --trust-policy and --trust-keyring")
-    policy = TrustPolicy.from_dict(json.loads(Path(args.trust_policy).read_text(encoding="utf-8")))
-    return verify_stage_a(
-        args.trust_index, policy, gpg_verifier(args.trust_keyring),
-        artifact_root=Path(args.trust_index).resolve().parent,
+        raise ValueError("Stage A requires --trust-policy and --trust-keyring")
+    policy = _load_policy(args.trust_policy)
+    verifier = gpg_verifier(args.trust_keyring)
+    if index:
+        return verify_stage_a(
+            index, policy, verifier,
+            artifact_root=Path(index).resolve().parent,
+        )
+    report = StageAReport.from_dict(json.loads(Path(report_path).read_text(encoding="utf-8")))
+    ok, _payload, errors = verify_receipt(receipt_path, policy, verifier, report)
+    if not ok:
+        return StageAReport(False, errors)
+    return report
+
+
+def _adapter_registry(args, trust):
+    """Build the only registry from which a plan may name a Rust adapter."""
+    if not getattr(args, "adapter_dir", None):
+        return None
+    if trust is None or not trust.passed:
+        raise ValueError("--adapter-dir requires successful Stage A verification")
+    if not getattr(args, "trust_keyring", None):
+        raise ValueError("--adapter-dir requires --trust-keyring")
+    index = getattr(args, "trust_index", None) or getattr(args, "trust_report", None)
+    if not index:
+        raise ValueError("--adapter-dir requires --trust-index or --trust-report")
+    artifact_root = getattr(args, "adapter_artifact_root", None) or str(Path(index).resolve().parent)
+    return AdapterRegistry.load(
+        args.adapter_dir,
+        verifier=gpg_verifier(args.trust_keyring),
+        trusted_keys=trust.trusted_keys,
+        artifact_root=artifact_root,
+        stage_artifacts=trust.artifacts_verified,
+        contract_component_ids=set(load_target().components),
     )
 
 
@@ -140,7 +195,8 @@ def _apply_decisions(decisions: list[dict], answers: list[str]) -> list[dict]:
 
 
 def cmd_apply(root: str, state_root: str, resume: bool, dry_run: bool,
-              decide: Optional[list[str]] = None, execute=None, trust=None) -> int:
+              decide: Optional[list[str]] = None, execute=None, trust=None,
+              adapters=None, fixture_name: str | None = None) -> int:
     if trust is not None and not trust.passed:
         print("Stage A trust verification failed:\n" + _json(trust.to_dict()), file=sys.stderr)
         return 3
@@ -163,8 +219,13 @@ def cmd_apply(root: str, state_root: str, resume: bool, dry_run: bool,
     if unresolved and not resume:
         print("Unresolved decisions:\n" + _json(unresolved), file=sys.stderr)
         return 2
+    if fixture_name is not None and not dry_run:
+        # Materialize the source tree so a later --verify probes the migrated
+        # sandbox, not the pristine fixture. Dry runs remain side-effect free.
+        write_apply_marker(fixture_name, state_root)
     result = execute_plan(plan, state_root=state_root, execute=execute,
-                          resume=resume, dry_run=dry_run, observed=observed)
+                          resume=resume, dry_run=dry_run, observed=observed,
+                          adapters=adapters)
     print(_json(result))
     return 0 if result.status in ("success", "no-op", "dry_run") else 1
 
@@ -176,15 +237,18 @@ def cmd_verify(root: str, execute=None, trust=None) -> int:
     observed = _discover(root, execute)
     target, _ = _resolve(root, observed)
     reports = validate_system(observed, target, root=root, execute=execute)
-    print(_json({"passed": all(r.passed for r in reports), "reports": reports}))
+    serialized = [r.to_dict() for r in reports]
+    print(_json({"passed": all(r.passed for r in reports), "reports": serialized}))
     return 0 if all(r.passed for r in reports) else 1
 
 
 def cmd_repair(root: str, state_root: str, decide: Optional[list[str]] = None,
-               execute=None, trust=None) -> int:
+               execute=None, trust=None, adapters=None,
+               fixture_name: str | None = None) -> int:
     # Re-discover first: the machine, not the journal, is the source of truth.
     return cmd_apply(root, state_root, resume=True, dry_run=False,
-                     decide=decide, execute=execute, trust=trust)
+                     decide=decide, execute=execute, trust=trust, adapters=adapters,
+                     fixture_name=fixture_name)
 
 
 def cmd_history(state_root: str) -> int:
@@ -217,6 +281,14 @@ def main(argv: Optional[list[str]] = None) -> int:
                     help="JSON trust policy containing pinned_roots and protocol limits")
     ap.add_argument("--trust-keyring", metavar="PATH",
                     help="dedicated GPG keyring used to verify Stage A signatures")
+    ap.add_argument("--trust-report", metavar="PATH",
+                    help="Stage A report written by the Rust bootstrap (with --trust-receipt)")
+    ap.add_argument("--trust-receipt", metavar="PATH",
+                    help="signed handoff receipt verified by Core before transformation")
+    ap.add_argument("--adapter-dir", metavar="PATH",
+                    help="directory of signed Rust adapter manifests to allow for this run")
+    ap.add_argument("--adapter-artifact-root", metavar="PATH",
+                    help="directory containing adapter binaries (default: Stage A index/report directory)")
     a = ap.parse_args(argv)
     root = a.root or DEFAULT_ROOT
     execute = None
@@ -230,8 +302,17 @@ def main(argv: Optional[list[str]] = None) -> int:
             return 2
         try:
             root = str(fixture_root(a.fixture))
+            sandbox = None
+            if a.apply and not a.dry_run:
+                sandbox = a.state_root
+            elif a.verify and applied_fixture(a.state_root, a.fixture):
+                # After a fixture apply, verification must probe the migrated
+                # state root. The pristine source tree would hide regressions.
+                root = a.state_root
+                sandbox = a.state_root
+            elif a.repair and applied_fixture(a.state_root, a.fixture):
+                sandbox = a.state_root
             # Dry-run and read-only commands must not create sandbox side effects.
-            sandbox = a.state_root if a.apply and not a.dry_run else None
             execute = fixture_executor(a.fixture, sandbox)
         except (ValueError, FileNotFoundError) as exc:
             print(str(exc), file=sys.stderr)
@@ -246,6 +327,12 @@ def main(argv: Optional[list[str]] = None) -> int:
         print("Stage A trust verification failed:\n" + _json(trust.to_dict()), file=sys.stderr)
         return 3
 
+    try:
+        adapters = _adapter_registry(a, trust)
+    except (OSError, ValueError) as exc:
+        print(f"Adapter configuration error: {exc}", file=sys.stderr)
+        return 3
+
     if a.history:
         return cmd_history(a.state_root)
     if a.check:
@@ -255,9 +342,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     if a.verify:
         return cmd_verify(root, execute, trust)
     if a.apply:
-        return cmd_apply(root, a.state_root, a.resume, a.dry_run, a.decide, execute, trust)
+        return cmd_apply(root, a.state_root, a.resume, a.dry_run, a.decide, execute,
+                         trust, adapters, a.fixture)
     if a.repair:
-        return cmd_repair(root, a.state_root, a.decide, execute, trust)
+        return cmd_repair(root, a.state_root, a.decide, execute, trust, adapters, a.fixture)
     return 2
 
 

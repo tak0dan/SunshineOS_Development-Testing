@@ -37,10 +37,12 @@ lifecycles.
 ## Pipeline stages
 
 ### A — Bootstrap and trust verification
-Verify local engine version, repository signatures, artifact hashes, chained key rotation,
-protocol compatibility and the signed Core handoff. No transformation begins before trust
-succeeds. `src/trust` implements and tests the protocol; the production Rust bootstrap crate is
-still pending (see `SPEC_ALIGNMENT.md`).
+`bootstrap-rust/` is the small std-only trust root. It verifies repository signatures, artifact
+hashes, chained key rotation, protocol compatibility and the signed Core handoff. It writes a
+signed receipt and `exec()`s the verified Core with `--trust-report` and `--trust-receipt`. Core
+re-verifies the receipt before discovery or mutation. `src/trust` keeps a Python reference
+implementation for tests and direct `--trust-index` runs. See `SPEC_ALIGNMENT.md` and
+`bootstrap-rust/README.md`.
 
 ### B — Discovery
 Inspect distribution, packages, kernel, boot, storage, services, network, audio, desktop, users,
@@ -84,8 +86,10 @@ fail closed.
 
 Migration manifests never contain arbitrary shell scripts. Complex cases use versioned signed
 Rust adapters running under the executor's authorization, journaling and validation model.
-`src/adapters.py` rejects unverified artifacts, forbidden permissions and parameter keys that
-could smuggle a shell command; actual adapter process sandboxing remains a gap.
+`src/adapters.py` verifies the manifest and artifact signatures, rejects forbidden permissions and
+parameter keys that could smuggle a shell command, and launches through a shell-free `systemd-run`
+scope with explicit paths, no network and CPU/memory/process/time limits. Every invocation is
+journaled. See `docs/ADAPTERS.md`.
 
 Component contracts in `src/target/contracts/*.toml` declare capabilities, dependencies, managed
 paths and lifecycle. They are validated against the published target before every apply, so the

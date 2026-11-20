@@ -13,16 +13,19 @@
    verified procedure recorded in the repository. **A key is never fetched from the same
    unauthenticated server that serves the code it signs.**
 
-The protocol-level implementation is in `src/trust`: a downloaded key is only trusted after a
-rotation record verifies against a key that was already trusted, self-signed rotations are
-rejected, artifacts must match signed SHA-256 digests, and the Core handoff must name a verified
-artifact.
+`bootstrap-rust/` enforces the protocol: a downloaded key is only trusted after a rotation record
+verifies against an already-trusted key, self-signed rotations are rejected, artifacts must match
+signed SHA-256 digests, and the Core handoff must name a verified artifact. Stage A writes a signed
+receipt binding the Core digest and Stage A report digest; Core refuses to start without a valid
+receipt. Future or malformed `valid_after` dates are rejected before a new key joins the chain.
+`src/trust` is the Python reference implementation used by direct `--trust-index` runs.
 
 > Known production gap: the current `sunshine-toolsync` fetches its manifest and signature from
-> the same GitHub release and trusts a local GPG keyring file. Rotation therefore still requires
-> updating that keyring out-of-band (as done in the 2026-11-20 rotation). The release must ship a
-> chained rotation document signed by the previous key, and the pinned root must live inside a
-> small Rust bootstrap rather than the Python CLI.
+> the same GitHub release and trusts a local GPG keyring file. The 2026-11-20 rotation replaced that
+> keyring out-of-band. `bootstrap-rust/ROTATION.md` and `test-rotation.sh` now define and prove the
+> chained document the release must publish, but the toolsync release pipeline still needs to ship
+> it. The Rust bootstrap supplies the pinned root, but still needs to be packaged as the
+> `sunshine-update` entrypoint.
 
 ## Privilege model
 
@@ -32,6 +35,8 @@ artifact.
 - Components cannot modify the trust root, bypass journaling, or self-authorize privileged
   operations. Typed operations run under the executor's security model; signed Rust adapters may
   extend primitives but remain inside the same authorization and validation boundaries.
+- Adapters launch only from a Stage A-validated registry, with a re-check of the artifact digest,
+  no shell, no network, an empty capability set, explicit paths and enforced resource limits.
 
 ## Threats and mitigations
 
@@ -42,6 +47,7 @@ artifact.
 | Key substitution | Pinned root in package; chained rotation; keyring updated only out-of-band |
 | TOCTOU on downloaded archive | Extract to private temp dir, verify each file before install, use realpath checks, reject symlinks |
 | Privilege escalation via component metadata | Metadata signed; operation parameters validated; no arbitrary shell in manifests |
+| Malicious or escaped adapter | Signed manifest + artifact, Stage A trust chain, re-check before launch, shell-free systemd-run sandbox, no network, explicit paths, resource limits, journaled invocation |
 | Destructive action from bad discovery | Confidence levels; low-confidence observations cannot authorize destructive ops |
 | Interrupted transformation corrupts system | Append-only fsynced journal, transaction checkpoints, re-discovery before resume |
 | Partial-upgrade breakage | Coherent full-upgrade transactions; refuse partial upgrades |

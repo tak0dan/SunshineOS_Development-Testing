@@ -697,6 +697,12 @@ BOOT_OPS = _BOOT_OPS
 
 
 def dispatch(operation: Operation, context: ExecutionContext) -> Result:
+    # Adapter-typed operations are routed only through the verified sandbox.
+    # Import lazily to avoid a cycle with primitives itself.
+    if operation.params.get("adapter_id"):
+        from .adapter_ops import execute_adapter  # local import by design
+
+        return execute_adapter(operation, context)
     handler = HANDLERS.get(operation.type)
     if handler is None:  # fail closed for unknown operation types
         return _refuse(f"no primitive registered for {operation.type}")

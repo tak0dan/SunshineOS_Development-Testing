@@ -257,6 +257,10 @@ class Journal:
         }
         if extra.get("skipped"):
             detail["skipped"] = True
+        # Signed adapter invocations are part of the audit trail.  The adapter
+        # runner puts this metadata on every Result, including dry runs.
+        if meta.get("adapter") or extra.get("adapter"):
+            detail["adapter"] = meta.get("adapter") or extra.get("adapter")
         self.append(entry, detail)
         txn = self._transaction() or {}
         completed = list(txn.get("completed", []))
@@ -284,8 +288,11 @@ class Journal:
             recovery=str(extra.get("recovery", "required")),
             output=str(error)[:20000],
         )
-        self.append(entry, {"operation": entry.operation, "group": extra.get("group", ""),
-                            "error": str(error), "recovery": entry.recovery})
+        failure_detail = {"operation": entry.operation, "group": extra.get("group", ""),
+                          "error": str(error), "recovery": entry.recovery}
+        if extra.get("adapter"):
+            failure_detail["adapter"] = extra["adapter"]
+        self.append(entry, failure_detail)
         txn = self._transaction() or {}
         failed = list(txn.get("failed", []))
         if op_id not in failed:

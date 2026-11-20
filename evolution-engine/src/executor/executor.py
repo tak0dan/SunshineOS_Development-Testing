@@ -12,6 +12,7 @@ except ImportError:  # pragma: no cover
     from core import (Confidence, JournalEntry, Observation, ObservedState, OpType,  # type: ignore
                       Operation, Plan, Status, state_fingerprint)
 
+from ..adapters import AdapterRegistry
 from .journal import Journal, JournalState, default_execute
 from .primitives import (BOOT_OPS, ExecutionContext, Result, _packages, _unit,
                          dispatch)
@@ -206,7 +207,12 @@ def _abort(plan: Plan, op: Optional[Operation], group: str, error: str,
            result: ExecutionResult, context: ExecutionContext, *,
            journal: Optional[Journal] = None, write_journal: bool = False) -> ExecutionResult:
     if journal is not None and write_journal and op is not None:
-        journal.fail(op.id, error, {"operation": op.type.value, "component": op.component, "group": group})
+        failure_detail: dict[str, Any] = {
+            "operation": op.type.value, "component": op.component, "group": group,
+        }
+        if context.metadata.get("adapter_invocation"):
+            failure_detail["adapter"] = context.metadata["adapter_invocation"]
+        journal.fail(op.id, error, failure_detail)
     recovery = build_recovery(plan, op, group, error, checkpoint_ref=context.checkpoint_ref,
                               completed_ops=list(result.completed_ops))
     result.status = "failed"
@@ -224,7 +230,9 @@ def _abort(plan: Plan, op: Optional[Operation], group: str, error: str,
 def execute_plan(plan: Plan, state_root: str | Path, execute: Optional[Execute] = None,
                  checkpoint: Optional[Checkpoint] = None, *, resume: bool = False,
                  dry_run: bool = False, validator: Optional[Callable[..., Any]] = None,
-                 observed: Optional[ObservedState] = None, verify: bool = True) -> ExecutionResult:
+                 observed: Optional[ObservedState] = None, verify: bool = True,
+                 adapters: Optional[AdapterRegistry] = None,
+                 adapter_launcher: Optional[Callable[..., Any]] = None) -> ExecutionResult:
     """Execute a plan transactionally.
 
     ``resume=True`` re-discovers actual state (journal + probes) and skips only
@@ -246,6 +254,10 @@ def execute_plan(plan: Plan, state_root: str | Path, execute: Optional[Execute] 
         ),
         repository_generation=str((plan.target or {}).get(
             "repository_generation", (plan.source or {}).get("repository_generation", ""))),
+        metadata={
+            "adapters": adapters,
+            "adapter_launcher": adapter_launcher,
+        },
     )
 
     # A plan is only valid for the machine it was built from.  When a caller
@@ -389,8 +401,12 @@ def execute_plan(plan: Plan, state_root: str | Path, execute: Optional[Execute] 
                 error = (f"post-execution validation failed for {op.id}: expected_present="
                          f"{check.expected_present}, present={check.present}, "
                          f"evidence={'; '.join(check.evidence)}")
-                journal.fail(op.id, error, {"operation": op.type.value, "group": group,
-                                            "recovery": "required"})
+                validation_detail: dict[str, Any] = {
+                    "operation": op.type.value, "group": group, "recovery": "required",
+                }
+                if context.metadata.get("adapter_invocation"):
+                    validation_detail["adapter"] = context.metadata["adapter_invocation"]
+                journal.fail(op.id, error, validation_detail)
                 return _abort(plan, op, group, error, result, context, journal=journal)
             if check is not None:
                 result.validations.append(check.to_dict())

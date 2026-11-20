@@ -124,7 +124,60 @@ def resolve_target(
     for category in _PRESERVED_CATEGORIES:
         _preserve_choice(observed, resolved, category, decisions)
     _resolve_nix(observed, resolved, decisions)
+    _resolve_storage_providers(observed, resolved, decisions)
     return resolved, decisions
+
+
+def _resolve_storage_providers(
+    observed: ObservedState,
+    target: TargetSpec,
+    decisions: list[dict[str, Any]],
+) -> None:
+    """Select recovery/boot tooling from *observed* capabilities.
+
+    The published target lists conservative defaults (``rsync``, ``btrfs-progs``,
+    ``os-prober``). Installing btrfs snapshot tools on an ext4/LUKS root, or GRUB
+    probing tools on a systemd-boot system, is harmless but wrong: it changes an
+    upstream Arch installation without a capability that needs it. Conversely,
+    a LUKS root needs ``cryptsetup`` present before any boot work so headers and
+    ``crypttab`` can be backed up. This is capability-based provider selection,
+    not a second package manager and not a source-specific branch.
+    """
+    evidence: list[str] = []
+    recovery = list(target.package_sets.get("recovery", []))
+    recovery_changed = False
+    if "btrfs" not in observed.capabilities and "btrfs-progs" in recovery:
+        recovery.remove("btrfs-progs")
+        recovery_changed = True
+        evidence.append("btrfs capability absent: btrfs-progs not required for checkpoints")
+    if "luks" in observed.capabilities and "cryptsetup" not in recovery:
+        recovery.append("cryptsetup")
+        recovery_changed = True
+        evidence.append("luks capability present: cryptsetup required for header backup")
+    if recovery_changed:
+        target.package_sets["recovery"] = _dedupe(recovery)
+
+    bootloader = next(
+        (d["selected"] for d in decisions if d["id"] == "bootloader-choice"), None
+    )
+    boot = list(target.package_sets.get("boot_integration", []))
+    boot_changed = False
+    if bootloader == "systemd-boot" and "os-prober" in boot:
+        boot.remove("os-prober")
+        boot_changed = True
+        evidence.append("systemd-boot selected: os-prober is a GRUB-only tool")
+    if boot_changed:
+        target.package_sets["boot_integration"] = _dedupe(boot)
+
+    if evidence:
+        decisions.append(_decision(
+            "storage-providers",
+            "storage",
+            selected="capability-based",
+            options=["capability-based"],
+            reason="Recovery and boot tooling follows observed storage/boot capabilities.",
+            evidence=evidence,
+        ))
 
 
 def _resolve_desktop(

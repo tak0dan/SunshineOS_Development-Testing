@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import shlex
+import shutil
 from pathlib import Path
 from typing import Callable, Iterable
 
@@ -28,6 +29,8 @@ FIXTURE_NAMES = (
     "arch-xfce",
     "arch-sway",
     "arch-five-year-old",
+    "arch-ext4-luks-systemd-boot",
+    "arch-btrfs-grub-nvidia-aur",
     "old-sunshine",
 )
 
@@ -59,6 +62,54 @@ _DESKTOP_PACKAGES = {
     "arch-sway": "sway 1.10-1\n",
 }
 
+# Source-matrix axes (spec G5).  Each profile changes only the signals that
+# matter for its axis; everything else uses the same discovery/planning code.
+# ``foreign`` is the output of ``pacman -Qqm`` (names only), and ``removed``
+# packages are dropped from the base inventory.
+_FIXTURE_PROFILES: dict[str, dict[str, object]] = {
+    "arch-ext4-luks-systemd-boot": {
+        "add_packages": ("systemd-boot 255.8-1", "cryptsetup 2.7.4-1"),
+        "removed": ("grub", "os-prober", "btrfs-progs"),
+        "foreign": (),
+        "lsblk": (
+            '{"blockdevices":[{"name":"nvme0n1","type":"disk","children":['
+            '{"name":"nvme0n1p1","type":"part","fstype":"vfat","mountpoint":"/boot"},'
+            '{"name":"nvme0n1p2","type":"part","fstype":"crypto_LUKS","mountpoint":null},'
+            '{"name":"cryptroot","type":"crypt","fstype":"ext4","mountpoint":"/"}]}]}'
+        ),
+        "findmnt": (
+            "/ /dev/mapper/cryptroot ext4\n"
+            "/boot /dev/nvme0n1p1 vfat\n"
+            "/sys/firmware/efi/efivars efivarfs\n"
+        ),
+        "btrfs": False,
+        "efi_entries": ("Boot0001* Linux Boot Manager HD(1,GPT)/File(\\EFI\\SYSTEMD\\SYSTEMD-BOOTX64.EFI)",),
+    },
+    "arch-btrfs-grub-nvidia-aur": {
+        "add_packages": (
+            "nvidia 560.35.03-1",
+            "nvidia-utils 560.35.03-1",
+            "dkms 3.0.12-1",
+            "yay 12.3.5-1",
+        ),
+        "removed": (),
+        "foreign": ("yay", "nvidia-dkms", "sunshine-theme-rose-pine"),
+        "lsblk": (
+            '{"blockdevices":[{"name":"nvme0n1","type":"disk","children":['
+            '{"name":"nvme0n1p1","type":"part","fstype":"vfat","mountpoint":"/boot"},'
+            '{"name":"nvme0n1p2","type":"part","fstype":"btrfs","mountpoint":"/"}]}]}'
+        ),
+        "findmnt": (
+            "/ /dev/nvme0n1p2 btrfs\n"
+            "/home /dev/nvme0n1p2 btrfs\n"
+            "/boot /dev/nvme0n1p1 vfat\n"
+            "/sys/firmware/efi/efivars efivarfs\n"
+        ),
+        "btrfs": True,
+        "efi_entries": ("Boot0002* GRUB HD(1,GPT)/File(\\EFI\\arch\\grubx64.efi)",),
+    },
+}
+
 
 def fixture_root(name: str) -> Path:
     """Return the filesystem tree for *name*, rejecting path traversal."""
@@ -85,12 +136,21 @@ class FixtureExecutor:
         self.state_root = Path(state_root) if state_root is not None else None
         self.commands: list[str] = []
         self.fail_on: list[tuple[str, str]] = []
+        self.profile = dict(_FIXTURE_PROFILES.get(name, {}))
         packages = _BASE_PACKAGES + _DESKTOP_PACKAGES.get(name, "")
+        packages += "".join(
+            str(line) + "\n" for line in self.profile.get("add_packages", ())
+        )
         if name == "old-sunshine":
             packages += "sunshine-agent 0.9.1-1\nsunshine-config 2026.1-1\n"
-        self.packages: set[str] = {
-            line.split()[0] for line in packages.splitlines() if line.strip()
+        removed = set(self.profile.get("removed", ()))  # type: ignore[arg-type]
+        self.package_lines: dict[str, str] = {
+            line.split()[0]: line.strip()
+            for line in packages.splitlines()
+            if line.strip() and line.split()[0] not in removed
         }
+        self.packages: set[str] = set(self.package_lines)
+        self.foreign: set[str] = set(self.profile.get("foreign", ()))  # type: ignore[arg-type]
         self.boot_entries: set[str] = set()
         self.state_file = (
             self.state_root / "migration" / "fixture-state.json"
@@ -100,17 +160,30 @@ class FixtureExecutor:
             try:
                 saved = json.loads(self.state_file.read_text(encoding="utf-8"))
                 self.packages = set(saved.get("packages", self.packages))
+                self.foreign = set(saved.get("foreign", self.foreign))
                 self.boot_entries = set(saved.get("boot_entries", set()))
             except (OSError, json.JSONDecodeError):
                 pass
-        if self.state_root is not None:
+        # A migrated sandbox already carries its own filesystem. Re-seeding it
+        # here would hide tampering with validated kernel/session directories.
+        fresh_sandbox = self.state_root is not None and not (
+            self.state_file is not None and self.state_file.exists()
+        )
+        if fresh_sandbox:
             (self.state_root / "usr/lib/modules/6.10.1-arch1-1").mkdir(
                 parents=True, exist_ok=True
             )
             session = self.state_root / "usr/share/wayland-sessions"
-            if name == "clean-arch" or name in _DESKTOP_PACKAGES or name == "old-sunshine":
+            # Fixtures without a detected desktop still accept the standard
+            # --decide desktop-profile=hyprland used by the CI matrix. Without
+            # a session file the post-apply validator correctly fails.
+            decided_hyprland = name in {
+                "clean-arch", "arch-five-year-old",
+                "arch-ext4-luks-systemd-boot", "arch-btrfs-grub-nvidia-aur",
+            }
+            if decided_hyprland or name in _DESKTOP_PACKAGES or name == "old-sunshine":
                 session.mkdir(parents=True, exist_ok=True)
-                session_name = "hyprland" if name == "clean-arch" else name.replace("arch-", "")
+                session_name = "hyprland" if decided_hyprland else name.replace("arch-", "")
                 (session / f"{session_name}.desktop").write_text(
                     "[Desktop Entry]\nName=Fixture session\n", encoding="utf-8"
                 )
@@ -119,6 +192,18 @@ class FixtureExecutor:
         """Make the next commands containing *needle* fail, for break tests."""
         self.fail_on.append((needle, error))
 
+    def tampered(self, name: str) -> bool:
+        """Whether a post-migration tamper marker is present in the sandbox.
+
+        Markers live at ``<state_root>/migration/tamper/<name>``. They let CLI
+        ``--verify`` tamper tests break command-backed capabilities without
+        changing the fixture source or the host machine.
+        """
+        return (
+            self.state_root is not None
+            and (self.state_root / "migration" / "tamper" / name).exists()
+        )
+
     def _save(self) -> None:
         """Persist simulated package/boot state inside the caller's sandbox."""
         if self.state_file is None:
@@ -126,6 +211,7 @@ class FixtureExecutor:
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
         self.state_file.write_text(json.dumps({
             "packages": sorted(self.packages),
+            "foreign": sorted(self.foreign),
             "boot_entries": sorted(self.boot_entries),
         }, sort_keys=True, indent=2) + "\n", encoding="utf-8")
 
@@ -146,10 +232,14 @@ class FixtureExecutor:
         if cmd.startswith("systemctl --version"):
             return 0, "systemd 255 (255.8-1-arch)\n", ""
         if cmd.startswith("systemctl is-system-running"):
+            if self.tampered("systemd"):
+                return 1, "", "systemd manager is not running"
             return 0, "running\n", ""
         if cmd.startswith("systemctl is-enabled"):
             return 0, "enabled\n", ""
         if cmd.startswith("systemctl --user is-active") or cmd.startswith("systemctl is-active"):
+            if self.tampered("audio") and "pipewire" in cmd:
+                return 1, "", "inactive"
             return 0, "active\n", ""
         if cmd.startswith("systemctl enable "):
             return 0, f"Created symlink for {cmd.split()[-1]}\n", ""
@@ -177,12 +267,18 @@ class FixtureExecutor:
         if cmd.startswith("uname"):
             return 0, "6.10.1-arch1-1\n", ""
         if cmd == "pacman --version":
+            if self.tampered("pacman"):
+                return 1, "", "pacman foundation is unavailable"
             return 0, "Pacman v7.1.0\n", ""
         if cmd == "pacman -Q":
-            packages = _BASE_PACKAGES + _DESKTOP_PACKAGES.get(self.name, "")
-            if self.name == "old-sunshine":
-                packages += "sunshine-agent 0.9.1-1\nsunshine-config 2026.1-1\n"
-            return 0, packages, ""
+            lines_out = []
+            for name in sorted(self.packages):
+                line = self.package_lines.get(name)
+                if line is None:
+                    line = f"{name} 1.0-1"
+                    self.package_lines[name] = line
+                lines_out.append(line)
+            return 0, "\n".join(lines_out) + "\n", ""
         if cmd.startswith("pacman -Q "):
             package = cmd.split(" ", 2)[-1].strip().strip("'\"")
             if package in self.packages:
@@ -191,17 +287,22 @@ class FixtureExecutor:
         if cmd == "pacman -Syu --noconfirm":
             return 0, ":: Synchronizing package databases...\n", ""
         if cmd.startswith("pacman -S --needed --noconfirm"):
-            names = cmd.split("--noconfirm", 1)[-1].split()
-            self.packages.update(name.strip("'\"") for name in names)
+            names = [name.strip("'\"") for name in cmd.split("--noconfirm", 1)[-1].split()]
+            self.packages.update(names)
+            for name in names:
+                self.package_lines.setdefault(name, f"{name} 1.0-1")
+                self.foreign.discard(name)  # an installed official package is no longer foreign
             self._save()
             return 0, "installing " + " ".join(names) + "\n", ""
         if cmd.startswith("pacman -Rs --noconfirm"):
-            names = cmd.split("--noconfirm", 1)[-1].split()
-            self.packages.difference_update(name.strip("'\"") for name in names)
+            names = [name.strip("'\"") for name in cmd.split("--noconfirm", 1)[-1].split()]
+            self.packages.difference_update(names)
             self._save()
             return 0, "removed " + " ".join(names) + "\n", ""
-        if cmd.startswith("pacman -Qqdt") or cmd.startswith("pacman -Qqm"):
+        if cmd.startswith("pacman -Qqdt"):
             return 0, "", ""
+        if cmd.startswith("pacman -Qqm"):
+            return 0, "".join(name + "\n" for name in sorted(self.foreign)), ""
         if cmd.startswith("mkinitcpio --version"):
             return 0, "mkinitcpio 39\n", ""
         if cmd.startswith("mkinitcpio "):
@@ -221,33 +322,41 @@ class FixtureExecutor:
             self._save()
             return 0, f"Boot0009 {label} created\n", ""
         if cmd.startswith("efibootmgr -v"):
-            entries = [
-                "BootCurrent: 0001",
-                "Boot0001* UEFI: NVMe",
+            if self.tampered("boot"):
+                return 1, "", "firmware boot management is unavailable"
+            entries = ["BootCurrent: 0001", "Boot0001* UEFI: NVMe"]
+            profile_entries = self.profile.get("efi_entries", (
                 "Boot0002* GRUB HD(1,GPT)/File(\\EFI\\arch\\grubx64.efi)",
-            ]
+            ))
+            entries.extend(str(entry) for entry in profile_entries)  # type: ignore[union-attr]
             entries += [f"Boot000{i}* {label}" for i, label in enumerate(
                 sorted(self.boot_entries), 9)]
             return 0, "\n".join(entries) + "\n", ""
         if cmd.startswith("findmnt"):
-            return 0, (
+            output = self.profile.get("findmnt") or (
                 "/ /dev/nvme0n1p2 btrfs\n"
                 "/boot /dev/nvme0n1p1 vfat\n"
                 "/sys/firmware/efi/efivars efivarfs\n"
-            ), ""
+            )
+            return 0, str(output), ""
         if cmd.startswith("lsblk"):
-            return 0, (
+            output = self.profile.get("lsblk") or (
                 '{"blockdevices":[{"name":"nvme0n1","type":"disk","children":['
                 '{"name":"nvme0n1p1","type":"part","fstype":"vfat","mountpoint":"/boot"},'
                 '{"name":"nvme0n1p2","type":"part","fstype":"btrfs","mountpoint":"/"}]}]}'
-            ), ""
+            )
+            return 0, str(output), ""
         if cmd.startswith("btrfs subvolume"):
-            return 0, "ID 256 gen 12 top level 5 path @\n", ""
+            if self.profile.get("btrfs", True):
+                return 0, "ID 256 gen 12 top level 5 path @\n", ""
+            return 127, "", "btrfs-progs not installed on this ext4 system"
         if cmd.startswith("lvs") or cmd.startswith("pvs"):
             return 127, "", "logical volume tools unavailable"
         if cmd.startswith("nmcli --version"):
             return 0, "nmcli tool, version 1.48.0\n", ""
         if cmd.startswith("nmcli -t general status"):
+            if self.tampered("network"):
+                return 1, "", "NetworkManager is disconnected"
             return 0, "NetworkManager:connected:full\n", ""
         if cmd.startswith("networkctl --version"):
             return 127, "", "networkctl unavailable"
@@ -270,6 +379,50 @@ class FixtureExecutor:
         return None
 
 
+def materialize_fixture(name: str, destination: str | Path) -> Path:
+    """Copy a fixture source tree into a sandbox as the post-migration root.
+
+    Files already present in *destination* are never overwritten: apply effects
+    (configuration, journals, generated images) are newer than the source and
+    must win. This gives ``--verify`` a real filesystem to probe instead of the
+    pristine fixture tree.
+    """
+    source = fixture_root(name)
+    target = Path(destination)
+    target.mkdir(parents=True, exist_ok=True)
+    for item in source.rglob("*"):
+        rel = item.relative_to(source)
+        dest = target / rel
+        if item.is_dir():
+            dest.mkdir(parents=True, exist_ok=True)
+        elif item.is_file() and not dest.exists():
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(item, dest)
+    return target
+
+
+def write_apply_marker(name: str, state_root: str | Path) -> None:
+    """Record which fixture a sandbox was migrated from, for later verifies."""
+    root = materialize_fixture(name, state_root)
+    marker = root / "migration" / "fixture-source.json"
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(json.dumps({
+        "fixture": name,
+        "root": str(root),
+        "purpose": "post-migration verification root",
+    }, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+
+
+def applied_fixture(state_root: str | Path, expected: str) -> bool:
+    marker = Path(state_root) / "migration" / "fixture-source.json"
+    if not marker.is_file():
+        return False
+    try:
+        return json.loads(marker.read_text(encoding="utf-8")).get("fixture") == expected
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return False
+
+
 def fixture_executor(name: str, state_root: str | Path | None = None) -> FixtureExecutor:
     fixture_root(name)  # validate the name before returning an executor
     return FixtureExecutor(name, state_root)
@@ -287,7 +440,10 @@ __all__ = [
     "FIXTURE_NAMES",
     "FIXTURES_ROOT",
     "FixtureExecutor",
+    "applied_fixture",
     "fixture_executor",
     "fixture_root",
+    "materialize_fixture",
     "provide_fixture_executor",
+    "write_apply_marker",
 ]

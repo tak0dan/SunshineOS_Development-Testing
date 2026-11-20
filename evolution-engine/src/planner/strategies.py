@@ -461,11 +461,18 @@ def plan_recovery(ctx: ComponentContext) -> list[Operation]:
         or "migration-recovery" in ctx.missing_capabilities
     )
     if needs_baseline and not ctx.outdated:
+        reason = ctx.reason
+        if "luks" in ctx.observed.capabilities:
+            # A boot-kernel change on an encrypted root must be recoverable even
+            # if the header or crypttab is damaged. State the requirement in the
+            # checkpoint intent; the recovery provider implements the backup.
+            extra = "back up LUKS headers and /etc/crypttab before boot changes"
+            reason = f"{reason}; {extra}" if reason else extra
         emitted.append(ops.create_checkpoint(
             f"baseline-{ctx.spec.id}",
             component=ctx.spec.id,
             lifecycle=ctx.lifecycle,
-            reason=ctx.reason,
+            reason=reason,
         ))
 
     migrate = _migrate(ctx)

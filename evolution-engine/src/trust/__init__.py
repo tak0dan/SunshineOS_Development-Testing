@@ -25,6 +25,7 @@ from .model import (
     canonical_bytes,
     gpg_verifier,
     sha256_file,
+    verify_receipt,
     verify_stage_a,
     verify_signed_document,
 )
@@ -40,6 +41,7 @@ __all__ = [
     "canonical_bytes",
     "gpg_verifier",
     "sha256_file",
+    "verify_receipt",
     "verify_stage_a",
     "verify_signed_document",
 ]

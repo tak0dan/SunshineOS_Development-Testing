@@ -106,6 +106,25 @@ class TrustTests(unittest.TestCase):
         self.assertEqual(report.artifacts_verified, ("core.tar.gz",))
         self.assertEqual(report.target_release, "sunshine-2026.1")
 
+    def test_future_rotation_date_is_rejected(self):
+        payload = {
+            "new_fingerprint": NEW,
+            "valid_after": "2999-01-01",
+            "revokes": [],
+            "reason": "future rotation",
+        }
+        self.index["key_rotations"][0].update({
+            **payload,
+            "signed_by": OLD,
+            "signature": sign(OLD, canonical_bytes(payload)),
+        })
+        report = verify_stage_a(
+            self.write_index(self.index), self.policy, verifier,
+            artifact_root=self.dir,
+        )
+        self.assertFalse(report.passed)
+        self.assertTrue(any("not effective yet" in e for e in report.errors), report.errors)
+
     def test_key_downloaded_from_same_server_is_not_trusted(self):
         self.index["key_rotations"][0]["signed_by"] = EVIL
         self.index["key_rotations"][0]["signature"] = sign(

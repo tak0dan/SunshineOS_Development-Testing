@@ -1,6 +1,7 @@
 """Typed trust model and Stage A verification (stdlib only)."""
 from __future__ import annotations
 
+import datetime
 import hashlib
 import json
 import subprocess
@@ -25,6 +26,17 @@ def sha256_file(path: str | Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def rotation_is_effective(valid_after: str) -> bool:
+    """Reject future or malformed rotation dates. Empty means immediately valid."""
+    if not valid_after:
+        return True
+    try:
+        date = datetime.date.fromisoformat(str(valid_after).split("T", 1)[0].split(" ", 1)[0])
+    except ValueError:
+        return False
+    return date <= datetime.datetime.now(datetime.timezone.utc).date()
 
 
 def _version_tuple(value: str) -> tuple[int, ...]:
@@ -172,6 +184,20 @@ class StageAReport:
     repository_generation: int = 0
     handoff: dict[str, Any] = field(default_factory=dict)
 
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "StageAReport":
+        """Rebuild a report emitted by the Rust Stage A bootstrap."""
+        return cls(
+            passed=bool(data.get("passed", False)),
+            errors=tuple(str(e) for e in data.get("errors", [])),
+            trusted_keys=tuple(str(k) for k in data.get("trusted_keys", [])),
+            rotated_keys=tuple(str(k) for k in data.get("rotated_keys", [])),
+            artifacts_verified=tuple(str(a) for a in data.get("artifacts_verified", [])),
+            target_release=str(data.get("target_release", "")),
+            repository_generation=int(data.get("repository_generation", 0)),
+            handoff=dict(data.get("handoff") or {}),
+        )
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "passed": self.passed,
@@ -259,6 +285,12 @@ def verify_stage_a(
         if rotation.signed_by == rotation.new_fingerprint:
             errors.append(f"key rotation {rotation.new_fingerprint} is self-signed")
             continue
+        if not rotation_is_effective(rotation.valid_after):
+            errors.append(
+                f"key rotation {rotation.new_fingerprint} is not effective yet "
+                f"(valid_after={rotation.valid_after})"
+            )
+            continue
         rotation_doc = SignedDocument(
             payload=rotation.signable(),
             signature=rotation.signature,
@@ -340,6 +372,68 @@ def verify_stage_a(
         repository_generation=index.repository_generation,
         handoff=handoff,
     )
+
+
+def verify_receipt(
+    receipt_path: str | Path,
+    policy: TrustPolicy,
+    verifier: Verifier,
+    report: StageAReport | None = None,
+) -> tuple[bool, dict[str, Any], tuple[str, ...]]:
+    """Verify the signed receipt written by the Rust Stage A bootstrap.
+
+    Core must never start on an unsigned or mismatched receipt. The receipt
+    binds the verified Core digest, target release, repository generation and
+    the exact Stage A report to a key in the established trust chain.
+    """
+    errors: list[str] = []
+    path = Path(receipt_path)
+    if not path.is_file():
+        return False, {}, (f"Stage A receipt not found: {path}",)
+    try:
+        envelope = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return False, {}, (f"cannot read Stage A receipt: {exc}",)
+    payload = dict(envelope.get("payload") or {})
+    signature = str(envelope.get("signature", ""))
+    signer = str(envelope.get("signed_by", "")).strip().upper()
+    trusted = set(policy.pinned_roots)
+    if report is not None:
+        trusted.update(str(k).strip().upper() for k in report.trusted_keys)
+    if not signer or signer not in trusted:
+        errors.append(f"receipt signer {signer or '(empty)'} is not in the trust chain")
+    if not verify_signed_document(
+        SignedDocument(payload, signature, signer), trusted, verifier, errors, "Stage A receipt"
+    ):
+        return False, payload, tuple(errors)
+
+    for key in (
+        "bootstrap_version", "protocol", "target_release", "repository_generation",
+        "core_artifact", "core_sha256", "trusted_keys", "stage_a_digest",
+    ):
+        if key not in payload:
+            errors.append(f"receipt is missing {key}")
+    if errors:
+        return False, payload, tuple(errors)
+
+    if report is not None:
+        expected_digest = hashlib.sha256(canonical_bytes(report.to_dict())).hexdigest()
+        if str(payload["stage_a_digest"]) != expected_digest:
+            errors.append("receipt does not match the Stage A report")
+        if str(payload["target_release"]) != report.target_release:
+            errors.append("receipt target release does not match the Stage A report")
+        if int(payload["repository_generation"]) != report.repository_generation:
+            errors.append("receipt repository generation does not match the Stage A report")
+        if str(payload["core_artifact"]) != str(report.handoff.get("artifact", "")):
+            errors.append("receipt Core artifact does not match the signed handoff")
+        handoff_digest = report.handoff.get("sha256")
+        if handoff_digest and str(payload["core_sha256"]) != str(handoff_digest):
+            errors.append("receipt Core digest does not match the signed handoff")
+        if str(payload["bootstrap_version"]) != policy.local_bootstrap_version:
+            errors.append("receipt bootstrap version does not match the local policy")
+    if int(payload["protocol"]) < policy.local_protocol:
+        errors.append("receipt protocol is older than the local bootstrap")
+    return not errors, payload, tuple(errors)
 
 
 def gpg_verifier(keyring: str | Path, gpg: str = "gpg") -> Verifier:
