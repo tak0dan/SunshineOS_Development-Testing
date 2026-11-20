@@ -15,7 +15,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
-from .core import AgentBackend, Task
+from .core import AgentBackend, Task, redact_text
 
 DEFAULT_FREE_MODELS: tuple[str, ...] = (
     "nvidia/nemotron-3.5-super-vl:free",
@@ -40,7 +40,6 @@ SYSTEM_PROMPT = (
     "verifiable desired state rather than release-specific scripts."
 )
 
-SECRET_PATTERN = re.compile(r"sk-or-v1-[A-Za-z0-9]+|Bearer\s+[A-Za-z0-9._-]+")
 CONTEXT_DIRECTIVE = re.compile(r"^CONTEXT_FILES:\s*(.+)$", re.MULTILINE)
 
 
@@ -99,7 +98,7 @@ class OpenRouterBackend(AgentBackend):
 
     @staticmethod
     def redact(text: Any) -> str:
-        return SECRET_PATTERN.sub("<redacted>", str(text))
+        return redact_text(text)
 
     def _repo_root(self, task: Task) -> Path | None:
         if not task.repo_path:
@@ -164,10 +163,14 @@ class OpenRouterBackend(AgentBackend):
             sections.append(header + _clip(content, allowance))
             budget -= min(allowance, len(content))
         sections.append("TASK: " + task.instructions.strip())
-        return "\n\n".join(sections)
+        return redact_text("\n\n".join(sections))
 
     def request_body(self, task: Task) -> dict[str, Any]:
         model = getattr(task, "model", "") or self.model
+        if model not in DEFAULT_FREE_MODELS:
+            raise RuntimeError(
+                f"model is not in the free-model allowlist: {model}"
+            )
         return {
             "model": model,
             "messages": [
@@ -218,4 +221,4 @@ class OpenRouterBackend(AgentBackend):
             "model": body["model"],
             "prompt_chars": len(body["messages"][1]["content"]),
         })
-        return _clip(content.strip(), self.max_output_chars)
+        return _clip(redact_text(content.strip()), self.max_output_chars)

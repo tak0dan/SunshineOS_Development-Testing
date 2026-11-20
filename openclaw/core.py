@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import subprocess
 import tempfile
@@ -29,6 +30,13 @@ TERMINAL_STATUSES = frozenset({DONE, FAILED})
 STATUSES = frozenset({PENDING, RUNNING, DONE, FAILED})
 
 EventCallback = Callable[[str, "Task"], None]
+
+SECRET_PATTERN = re.compile(r"sk-or-v1-[A-Za-z0-9]+|Bearer\s+[A-Za-z0-9._-]+")
+
+
+def redact_text(value: Any) -> str:
+    """Remove credential-shaped tokens from text before storing or sending it."""
+    return SECRET_PATTERN.sub("<redacted>", str(value))
 
 
 def _utc_now() -> str:
@@ -105,11 +113,16 @@ class TaskStore:
                 raise ValueError(f"corrupt task store {self.path}: bad task {key!r}")
             task = Task.from_dict(value)
             task.id = str(key)
+            for field_name in ("title", "instructions", "repo_path", "model", "result", "error"):
+                setattr(task, field_name, redact_text(getattr(task, field_name, "")))
             tasks[task.id] = task.to_dict()
         return tasks
 
     def _save(self, tasks: Dict[str, Dict[str, Any]]) -> None:
         """Write the whole store to a temp file in the same directory, then rename."""
+        for task in tasks.values():
+            for field_name in ("title", "instructions", "repo_path", "model", "result", "error"):
+                task[field_name] = redact_text(task.get(field_name, ""))
         payload = json.dumps(tasks, indent=2, sort_keys=True, ensure_ascii=False)
         fd, tmp_name = tempfile.mkstemp(
             prefix=".openclaw-", suffix=".json.tmp", dir=str(self.path.parent)
@@ -324,7 +337,7 @@ class Orchestrator:
             try:
                 output = self.backend.run(task)
             except Exception as exc:
-                message = _shorten(f"{type(exc).__name__}: {exc}")
+                message = redact_text(_shorten(f"{type(exc).__name__}: {exc}"))
                 exhausted = task.attempts >= self.max_attempts
                 task = self.store.update(
                     task.id,
@@ -339,7 +352,9 @@ class Orchestrator:
                 self._emit("task.retry", task)
                 continue
 
-            task = self.store.update(task.id, status=DONE, result=output, error="")
+            task = self.store.update(
+                task.id, status=DONE, result=redact_text(output), error=""
+            )
             self._emit("task.succeeded", task)
             return task
 

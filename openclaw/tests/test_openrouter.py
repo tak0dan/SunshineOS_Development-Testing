@@ -118,6 +118,34 @@ class OpenRouterBackendTests(unittest.TestCase):
             self.assertIn(model, DEFAULT_FREE_MODELS)
             self.assertTrue(model.endswith(":free"))
 
+    def test_non_free_model_is_rejected(self) -> None:
+        backend = self._backend(mock.Mock())
+        task = Task(instructions="hello", model="openai/gpt-5")
+        with mock.patch.dict(os.environ, {"OPENCLAW_TEST_API_KEY": self.key}):
+            with self.assertRaisesRegex(RuntimeError, "free-model allowlist"):
+                backend.run(task)
+
+    def test_prompt_and_completion_are_redacted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "notes.md").write_text("key: " + self.key, encoding="utf-8")
+            opener = mock.Mock(return_value=FakeResponse({
+                "choices": [{"message": {"content": "Echo " + self.key}}]
+            }))
+            backend = self._backend(opener)
+            task = Task(
+                instructions="CONTEXT_FILES: notes.md\nReview the note",
+                repo_path=str(root),
+            )
+            with mock.patch.dict(os.environ, {"OPENCLAW_TEST_API_KEY": self.key}):
+                result = backend.run(task)
+
+            prompt = json.loads(opener.call_args.args[0].data)["messages"][1]["content"]
+            self.assertNotIn(self.key, prompt)
+            self.assertIn("<redacted>", prompt)
+            self.assertNotIn(self.key, result)
+            self.assertIn("<redacted>", result)
+
 
 if __name__ == "__main__":
     unittest.main()

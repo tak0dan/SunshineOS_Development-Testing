@@ -85,6 +85,17 @@ class TaskStoreTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             TaskStore(self.path).list()
 
+    def test_loaded_secrets_are_redacted(self) -> None:
+        key = "sk-or-v1-" + "b" * 48
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(json.dumps({
+            "leak": {"id": "leak", "title": "old", "result": key}
+        }), encoding="utf-8")
+        loaded = TaskStore(self.path).get("leak")
+        self.assertIsNotNone(loaded)
+        self.assertNotIn(key, loaded.result)
+        self.assertIn("<redacted>", loaded.result)
+
 
 class OrchestratorTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -157,6 +168,18 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(len(backend.calls), 2)
         self.assertIsNone(self.store.next_pending())
         self.assertEqual(TaskStore(self.store.path).get("a").status, FAILED)
+
+    def test_orchestrator_redacts_backend_output_before_persistence(self) -> None:
+        key = "sk-or-v1-" + "a" * 48
+        orchestrator = Orchestrator(
+            self.store, StubBackend(["leaked " + key]), max_attempts=1
+        )
+        final = orchestrator.run_one()
+        self.assertNotIn(key, final.result)
+        persisted = TaskStore(self.store.path).get("a")
+        self.assertIsNotNone(persisted)
+        self.assertNotIn(key, persisted.result)
+        self.assertIn("<redacted>", persisted.result)
 
     def test_event_callback_errors_do_not_abort_tasks(self) -> None:
         def broken_callback(event: str, task: Task) -> None:
