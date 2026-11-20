@@ -87,6 +87,30 @@ documented and remains removed by post-install before first boot.
 | Private key leak scan of package source | no private key material found |
 | Installer syntax | `bash -n` OK |
 
+## Live VM confirmation (SunshineOS-Audit)
+
+The built package was installed in the running audit VM with `pacman -U`:
+
+- `sunshine-evolution --check` refused to start (exit 3) because the receipt private key is not
+  installed: `receipt signing key 2FEC… is not installed in /etc/sunshine/trust/receipt-home`.
+  This is the intended fail-closed behavior; no private key was copied to the VM.
+- The installed Rust verifier accepted the shipped index: `passed true`, artifact `core`,
+  trusted key `2FEC…`, generation 1.
+- A copied trust directory with one byte appended to `core` failed with
+  `artifact core: digest mismatch` and `handoff artifact 'core' was not verified` (exit 1).
+  Restoring the original file returned `passed true` (exit 0).
+
+The signed tools release was also published and delivered to the VM:
+
+- `tak0dan/sunshine-tools` `tools` assets now carry manifest version `2026.11.20.240`, signed by NEW;
+  the same `sunshine.gpg` installed in the VM verified the downloaded manifest.
+- `sunshine-toolsync update` changed 3 files (`2026.11.20.5 → 2026.11.20.240`), including the
+  installer with `SUNSHINE_PASS_FILE` and `sun_run` call sites.
+- `sunshine-toolsync verify` reported every installed tool matching the manifest.
+- `sunshine-toolsync rollback` restored the previous installer (`SUNSHINE_PASS=` present again),
+  and a following `update` re-applied the signed release.
+- Evidence screenshot: `reports/screenshots/toolsync-signed-release-2026-11-20.png`.
+
 ## Next break attempts
 
 1. Repeat Stage A verification on a host whose global GPG config enables keyboxd and confirm the
