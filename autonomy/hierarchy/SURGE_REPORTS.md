@@ -4537,3 +4537,69 @@ Added a catalog validator and regression tests under `autonomy/codex/`:
 All five tests passed: `GARUDA_CAT_001` through `GARUDA_CAT_005`. The catalog validator also reported `validated 5 Garuda findings`.
 
 I could not commit the files: Git failed to create `.git/index.lock` because the index is on a read-only filesystem. The five deliverable files remain uncommitted.
+
+
+## codex-lead-0042 (2026-11-21 03:40)
+
+# Garuda integration — Wave 1 deepening
+
+The survey and catalog are in [garuda-wave1.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/garuda-wave1.md) and [garuda-wave1-catalog.json](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/garuda-wave1-catalog.json). The survey records the inspected Toolbox checkout revision and exact source paths.
+
+I added Garuda conditional source classification in [compatibility.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/src/target/compatibility.py:124). It requires configured `os-release` evidence containing the exact `ID_LIKE=arch` token; absent, stale, or lookalike lineage evidence blocks migration. Garuda sources still go through the common package, system, and boot checks. This is preflight support, not full migration qualification.
+
+Regression tests in [test_compatibility.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/tests/test_compatibility.py:90):
+
+- `T-GARUDA-COMP-001` through `T-GARUDA-COMP-005` cover valid lineage, missing or stale evidence, token matching, and strict-policy rejection.
+- The existing catalog tests `GARUDA_CAT_001` through `GARUDA_CAT_005` validate provenance and adoption controls.
+
+**Verification:** 25 compatibility tests passed; 5 catalog tests passed; validator reported `validated 5 Garuda findings`. Full output: [garuda-wave1-integration-test.log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/garuda-wave1-integration-test.log). The concise findings and scope limits are in [garuda-wave1-integration.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/garuda-wave1-integration.md).
+
+I could not commit the new deliverables: Git could not create `.git/index.lock` because the index filesystem is read-only. The shared worktree also contains unrelated pending changes, which I left unstaged.
+
+
+## codex-lead-0043 (2026-11-21 03:44)
+
+## Garuda Wave 1 regression deepening
+
+Surveyed the Garuda Toolbox checkout at revision `430de5bc5356468318a5c677d8b2f6d2c4565a75` and catalogued maintenance actions, updater fallback behavior, orphan removal, snapshot and boot repair, shell execution, and configuration reset. The survey includes exact source paths and SunshineOS dispositions.
+
+Hardened [garuda_catalog.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/garuda_catalog.py) against malformed data, invalid revisions, and unsafe source paths. Added six regression cases, bringing the suite to 11 tests; all passed. The catalogue CLI also validated all five findings and their cited checkout paths.
+
+Deliverables:
+
+- [Survey and change summary](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/garuda-wave1-regression-deepening.md)
+- [Regression tests](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/test_garuda_catalog.py) — `GARUDA_CAT_001`–`GARUDA_CAT_011`
+- [Test and provenance log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/garuda-wave1-regression-deepening-test.log)
+
+I couldn’t commit: Git reported `.git/index.lock: Read-only file system`. No files outside `autonomy/codex/` were changed by this task.
+
+
+## codex-lead-0044 (2026-11-21 03:47)
+
+## Garuda architecture enforcement — Wave 1 deepening
+
+Added a read-only source audit that checks six Garuda Toolbox behaviors against the pinned checkout and records their exact file paths, line numbers, and evidence. The survey maps each behavior to SunshineOS migration controls and architecture decisions.
+
+**Regression tests:** 14 passed, including `GARUDA_CAT_001`–`011` and `GARUDA_ARCH_001`–`003`.
+
+Files and evidence are under `autonomy/codex/`:
+
+- [Survey and change summary](autonomy/codex/garuda-wave1-architecture-enforcement.md)
+- [Audit implementation](autonomy/codex/garuda_architecture_audit.py) and [regression tests](autonomy/codex/test_garuda_architecture_audit.py)
+- [Structured source evidence](autonomy/codex/garuda-wave1-architecture-audit.json) and [test log](autonomy/codex/garuda-wave1-architecture-enforcement-test.log)
+
+I couldn’t commit the files: Git failed to create `.git/index.lock` because the repository’s `.git` directory is read-only in this environment.
+
+
+## codex-lead-0045 (2026-11-21 03:50)
+
+## Garuda migration survey — Wave 1
+
+The local Garuda checkout is a Toolbox application. I found update and repair flows, but no OS migration engine, transition catalog, migration journal, or staged OS switch in this checkout. The survey records that scope and maps the observed flows to SunshineOS migration safeguards in [garuda-migration-engine-wave1.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/garuda-migration-engine-wave1.md).
+
+I extended the pinned source audit to distinguish Toolbox app self-updates from OS package updates, with regression IDs `GARUDA-ARCH-007`–`009` and `GARUDA_ARCH_004`. **Verification passed:** 15 tests; the five-finding catalog validated.
+
+- Audit evidence: [garuda-wave1-migration-audit.json](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/garuda-wave1-migration-audit.json)
+- Test log: [garuda-wave1-migration-test.log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/garuda-wave1-migration-test.log)
+
+I couldn’t commit the deliverables: Git failed to create `.git/index.lock` because the index is read-only. The files remain in the workspace and are uncommitted.
