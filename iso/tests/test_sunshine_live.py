@@ -186,6 +186,32 @@ class ToolkitTests(unittest.TestCase):
         text = "python: /usr/lib/x.py: No such file or directory\nother: warning: mismatch\n"
         self.assertEqual(sl.parse_missing_packages(text), ["other", "python"])
 
+    def test_report_runs_with_minimal_arguments(self):
+        args = sl.build_parser().parse_args(["--root", str(self.root), "report"])
+        report = sl.cmd_report(args, self.runner())
+        self.assertIn("health", report)
+        self.assertIn("sanity", report)
+        self.assertEqual(report["repair"]["status"], "assessment")
+        self.assertFalse(hasattr(args, "apply"))
+
+    def test_migrate_arch_apply_accepts_arch_identity(self):
+        index = self.base / "index.json"
+        policy = self.base / "policy.json"
+        keyring = self.base / "keyring.gpg"
+        for path in (index, policy, keyring):
+            path.write_text("{}\n")
+        args = sl.build_parser().parse_args([
+            "--root", str(self.root), "--state-root", str(self.base / "state"),
+            "--trust-index", str(index), "--trust-policy", str(policy),
+            "--trust-keyring", str(keyring),
+            "migrate", "--apply", "--source", "arch",
+        ])
+        report = sl.cmd_migrate(args, self.runner())
+        self.assertEqual(report["status"], "pass")
+        self.assertTrue(all(item["status"] != "fail" for item in report["sanity"]["evidence"]))
+        self.assertTrue(any(item["name"] == "os-identity" and item["status"] == "pass"
+                            for item in report["sanity"]["evidence"]))
+
 
 if __name__ == "__main__":
     unittest.main()

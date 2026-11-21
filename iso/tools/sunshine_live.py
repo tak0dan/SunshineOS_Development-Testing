@@ -97,8 +97,8 @@ def evidence(name: str, status: str, detail: str, remedy: str = "") -> dict[str,
     return {"name": name, "status": status, "detail": str(detail), "remedy": remedy}
 
 
-def worst(items: Iterable[dict[str, str]]) -> str:
-    states = [item.get("status", "unknown") for item in items]
+def worst(items: Iterable[dict[str, str] | str]) -> str:
+    states = [item.get("status", "unknown") if isinstance(item, dict) else str(item) for item in items]
     if not states:
         return "unknown"
     return max(states, key=lambda value: STATUS_ORDER.get(value, 3))
@@ -610,9 +610,10 @@ def cmd_migrate(args: argparse.Namespace, runner: Runner | None = None) -> dict[
     if not check["ok"]:
         data["status"] = "fail"
         return data
+    expected_os = {"sunshine": "sunshine", "arch": "arch"}.get(source, "")
     if args.apply:
         args.command_name = "migrate"
-        sanity_check, snap, gate = guarded_apply(args, runner, expected_os="sunshine")
+        sanity_check, snap, gate = guarded_apply(args, runner, expected_os=expected_os)
         data.update({"sanity": sanity_check, "snapshot": snap, "gate": gate})
         if not gate["ok"]:
             data["status"] = "blocked"
@@ -740,6 +741,15 @@ def parse_missing_packages(text: str) -> list[str]:
 
 def cmd_repair(args: argparse.Namespace, runner: Runner | None = None) -> dict[str, Any]:
     root = Path(args.root or "/")
+    # 'sunshine-report' reuses this assessment with a smaller argument set.
+    apply = bool(getattr(args, "apply", False))
+    servicing_dir = getattr(args, "servicing_dir", None)
+    slot_evidence = getattr(args, "slot_evidence", None)
+    slot_assessment = getattr(args, "slot_assessment", None)
+    slot_workflow = getattr(args, "slot_workflow", None)
+    target_os = getattr(args, "target_os", "") or "SunshineOS"
+    fix_lock = bool(getattr(args, "fix_lock", False))
+    reinstall_missing = bool(getattr(args, "reinstall_missing", False))
     pkg = engine_health(runner)
     checks = (pkg.get("report") or {}).get("checks", [])
     findings = [item for check in checks for item in check.get("findings", [])]
@@ -762,7 +772,7 @@ def cmd_repair(args: argparse.Namespace, runner: Runner | None = None) -> dict[s
 
     report: dict[str, Any] = {
         "command": "repair", "generated": utc(), "root": str(root),
-        "apply": bool(args.apply),
+        "apply": apply,
         "assessment": {
             "package_health": pkg,
             "engine_findings": findings[:50],
@@ -771,15 +781,15 @@ def cmd_repair(args: argparse.Namespace, runner: Runner | None = None) -> dict[s
                      "holder": lock_holder, "holder_alive": holder_alive},
             "snapshots": snapshot_inventory(root, runner),
             "steamos": _steamos_assessment(root, runner),
-            "windows_servicing": _servicing_assessment(args.servicing_dir),
+            "windows_servicing": _servicing_assessment(servicing_dir),
             "slot_activation": _slot_assessment(
-                args.slot_evidence, args.slot_assessment, args.slot_workflow, args.target_os or "SunshineOS"
+                slot_evidence, slot_assessment, slot_workflow, target_os
             ),
         },
         "actions": [],
         "status": "assessment",
     }
-    if not args.apply:
+    if not apply:
         report["remedy"] = "review the assessment; pass --apply with an explicit repair flag to mutate"
         return report
 
@@ -790,13 +800,13 @@ def cmd_repair(args: argparse.Namespace, runner: Runner | None = None) -> dict[s
         report["status"] = "blocked"
         return report
 
-    if args.fix_lock and lock.is_file() and not holder_alive:
+    if fix_lock and lock.is_file() and not holder_alive:
         action = run(["rm", "-f", str(lock)], runner)
         report["actions"].append({"name": "remove-stale-lock", "action": action})
-    elif args.fix_lock and holder_alive:
+    elif fix_lock and holder_alive:
         report["actions"].append({"name": "remove-stale-lock", "skipped": True,
                                    "reason": "lock holder is alive"})
-    if args.reinstall_missing and missing:
+    if reinstall_missing and missing:
         action = run(["pacman", "-S", "--noconfirm", "--needed", *missing], runner, timeout=1800)
         report["actions"].append({"name": "reinstall-missing-packages", "packages": missing, "action": action})
     if not report["actions"]:
@@ -813,11 +823,13 @@ def cmd_repair(args: argparse.Namespace, runner: Runner | None = None) -> dict[s
 
 def cmd_report(args: argparse.Namespace, runner: Runner | None = None) -> dict[str, Any]:
     root = Path(args.root or "/")
+    health_report = health(root, runner, deep=args.deep)
+    sanity_report = sanity(root, runner, require_snapshot=False)
+    repair_report = cmd_repair(args, runner)
     return {
         "command": "report", "generated": utc(), "root": str(root),
-        "health": health(root, runner, deep=args.deep),
-        "sanity": sanity(root, runner, require_snapshot=False),
-        "repair": cmd_repair(args, runner),
+        "status": worst([health_report["status"], sanity_report["status"]]),
+        "health": health_report, "sanity": sanity_report, "repair": repair_report,
     }
 
 
@@ -889,22 +901,24 @@ def build_parser() -> argparse.ArgumentParser:
     ):
         p = sub.add_parser(name, help=help_text)
         add_common(p, suppress=True)
-        p.add_argument("--apply", action="store_true", help="authorize mutation")
-        p.add_argument("--allow-no-snapshot", action="store_true",
-                       help="explicitly proceed when no rollback snapshot can be made")
-        p.add_argument("--verify", action="store_true", help="run engine verification after apply")
+        if name != "report":
+            p.add_argument("--apply", action="store_true", help="authorize mutation")
+            p.add_argument("--allow-no-snapshot", action="store_true",
+                           help="explicitly proceed when no rollback snapshot can be made")
+            p.add_argument("--verify", action="store_true", help="run engine verification after apply")
         p.add_argument("--deep", action="store_true")
         if name == "migrate":
             p.add_argument("--source", choices=("auto", "arch", "sunshine"), default="auto")
             p.add_argument("--target-manifest", metavar="PATH")
-        if name == "repair":
-            p.add_argument("--fix-lock", action="store_true")
-            p.add_argument("--reinstall-missing", action="store_true")
+        if name in {"repair", "report"}:
             p.add_argument("--servicing-dir", metavar="PATH")
             p.add_argument("--slot-evidence", metavar="PATH")
             p.add_argument("--slot-assessment", metavar="PATH")
             p.add_argument("--slot-workflow", metavar="PATH")
             p.add_argument("--target-os", default="SunshineOS")
+        if name == "repair":
+            p.add_argument("--fix-lock", action="store_true")
+            p.add_argument("--reinstall-missing", action="store_true")
         p.set_defaults(func=func)
     return parser
 

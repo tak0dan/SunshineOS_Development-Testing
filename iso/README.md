@@ -66,6 +66,18 @@ The checked-in profile is at `iso/profile/sunshine/`. It uses
 and a 4 GiB copy-on-write limit. `sunshine.assess=1` on the kernel command line
 enables the optional startup assessment service.
 
+The migration engine and live toolkit are staged directly from this repository
+into `airootfs`, so building the image does not depend on a separately published
+SunshineOS package repository being available on the build host.
+
+## Continuous integration
+
+`.github/workflows/iso-build.yml` runs the same build in a digest-pinned Arch
+Linux container on `workflow_dispatch` and on pushes to `development` that
+touch `iso/**`, `evolution-engine/**` or the workflow itself. The resulting ISO
+and `manifest.sha256` are uploaded as the `sunshineos-iso` artifact. This is the
+path that can produce a real image without local root access.
+
 ## Current host limitation
 
 The host used to prepare this rebuild is Garuda Linux with `pacman`, `xorriso`,
@@ -77,7 +89,7 @@ list rather than pretending an ISO was produced.
 
 ## Verification already run
 
-- `python3 -m unittest discover -s iso/tests -p 'test_*.py' -v` — 16 tests OK.
+- `python3 -m unittest discover -s iso/tests -p 'test_*.py' -v` — 18 tests OK.
 - `python3 -m unittest discover -s evolution-engine/tests -p 'test_*.py' -v` — 317 tests OK.
 - `shellcheck iso/build.sh iso/verify.sh iso/tools/sunshine-live iso/profile/sunshine/profiledef.sh`
 - `./iso/build.sh --check` — staged profile validated, no missing files, profiledef syntax OK.

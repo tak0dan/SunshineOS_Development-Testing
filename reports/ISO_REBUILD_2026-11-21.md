@@ -22,22 +22,32 @@ The build script reports that explicitly instead of fabricating an image.
   systemd-boot, zstd squashfs, `install_dir=sunshine`, 4 GiB CoW, package list,
   mirror/pacman config, mkinitcpio-archiso hooks, SunshineOS identity hook, and
   optional startup assessment service enabled by `sunshine.assess=1`.
-- `iso/tests/` — 16 tests covering health/sanity, update previews and gating,
+- `iso/tests/` — 18 tests covering health/sanity, update previews and gating,
   engine argv binding, assessment-only repair, servicing evidence, staging and
   profile integrity.
 - `iso/README.md` — operator reference and honest build-host limitation.
+- `.github/workflows/iso-build.yml` — digest-pinned Arch container build path that
+  uploads the ISO plus SHA-256 manifest as a CI artifact.
+
+Two runtime defects found during review were fixed before publication:
+`sunshine-report` now reuses the repair assessment without requiring repair-only
+arguments, and `migrate --source arch --apply` checks Arch identity instead of
+incorrectly demanding SunshineOS identity.
 
 ## Verification actually run
 
-- 16 ISO toolkit tests: OK.
+- 18 ISO toolkit tests: OK.
 - 317 evolution-engine regression tests: OK.
 - `shellcheck` on build scripts, dispatcher, profiledef and generated wrappers: clean.
 - `./iso/build.sh --check`: staged profile validated; no missing files; profiledef syntax OK.
+- CI trust-policy audit: `NO_DETECTED_POLICY_FINDINGS` across 6 workflows.
 - Real engine smoke test: `sunshine-live --fixture clean-arch upgrade` returned an
   actual plan with engine rc 0.
 
 ## Next required action
 
-On an Arch build host with `archiso`, `squashfs-tools` and `xorriso`, run
-`./iso/build.sh`. It will re-run tests, stage the profile, call `mkarchiso`,
-verify the ISO with `iso/verify.sh`, and write `iso/out/manifest.sha256`.
+Push the workflow so the digest-pinned Arch container can run `./iso/build.sh` and
+upload a real image artifact. On a local Arch build host with `archiso`,
+`squashfs-tools` and `xorriso`, the same script re-runs tests, stages the profile,
+calls `mkarchiso`, verifies the ISO with `iso/verify.sh`, and writes
+`iso/out/manifest.sha256`.

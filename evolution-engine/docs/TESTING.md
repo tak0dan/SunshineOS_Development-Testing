@@ -47,7 +47,7 @@ python3 -m unittest discover -s tests -v
 ```
 
 Tests use fake `root` paths and injected `execute(cmd)` callables so no test touches the real
-system. Current suite: **117 tests, OK**. Coverage includes discovery, users, source compatibility,
+system. Current suite: **317 tests, OK**. Coverage includes discovery, users, source compatibility,
 target resolution, contradictory decisions, Stage A trust, signed receipts, rotation dates,
 component contracts, signed adapter registration/sandbox/journaling, planner, executor, interrupted
 resume, stale plans, CLI fixture fidelity and idempotency.

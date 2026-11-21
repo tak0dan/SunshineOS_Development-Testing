@@ -61,7 +61,7 @@ docs/                  architecture, security, testing, threat model
 
 ## Status
 
-Foundational engine with 117 offline tests, a Rust Stage A bootstrap with signed Core handoff and
+Foundational engine with 317 offline tests, a Rust Stage A bootstrap with signed Core handoff and
 chained rotation proof, sandboxed signed Rust adapters, source compatibility profiles,
 host-independent fixture CLI and documented break/fix cycles. The next hard steps are the broader
 source matrix and live post-migration tamper tests.
