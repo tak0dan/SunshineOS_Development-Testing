@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -23,6 +24,11 @@ DEFAULT_FREE_MODELS: tuple[str, ...] = (
     "inclusionai/ling-3.2-flash:free",
     "google/gemma-4-31b-it:free",
     "nvidia/nemotron-3.5-lightning:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "dots-studio/dots-3-note-preview:free",
+    "recursive/flint-v1.0:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "openrouter/free",
 )
 
 MODEL_ROLES: Mapping[str, str] = {
@@ -222,3 +228,195 @@ class OpenRouterBackend(AgentBackend):
             "prompt_chars": len(body["messages"][1]["content"]),
         })
         return _clip(redact_text(content.strip()), self.max_output_chars)
+
+
+class OllamaBackend(AgentBackend):
+    """Local Ollama agent that can run allowlisted read-only commands.
+
+    No credentials or network keys are used. Tool calls are executed only
+    against a strict allowlist inside the task repository, so the agent can
+    inspect code, logs and VM state without mutating the host.
+    """
+
+    API_URL = "http://127.0.0.1:11434/api/chat"
+    DEFAULT_MODEL = "gemma3:4b"
+    ALLOWED = re.compile(
+        r"^(?:ls|find|cat|sed|grep|rg|head|tail|wc|pwd|uname|df|ps|date|"
+        r"git\s+(?:status|log|diff|show|ls-files)|python3\s+-c|"
+        r"VBoxManage\s+(?:list|showvminfo|snapshot\s+\S+\s+list))\b"
+    )
+    BLOCKED = re.compile(r"(?:rm\s|sudo|curl|wget|dd\s|mkfs|mount|umount|chmod|chown|\$\(|`|[|;><])")
+
+    def __init__(self, model: str | None = None, *, opener: Callable[..., Any] | None = None,
+                 timeout: float = 600.0, max_rounds: int = 4) -> None:
+        self.model = model or self.DEFAULT_MODEL
+        self.opener = opener or urllib.request.urlopen
+        self.timeout = float(timeout)
+        self.max_rounds = int(max_rounds)
+        self.calls: list[dict[str, Any]] = []
+
+    @property
+    def enabled(self) -> bool:
+        return True
+
+    def __repr__(self) -> str:
+        return f"OllamaBackend(model={self.model!r})"
+
+    def build_prompt(self, task: Task) -> str:
+        root = Path(task.repo_path).expanduser().resolve() if task.repo_path else None
+        prompt = task.instructions.strip()
+        if root and root.is_dir():
+            try:
+                entries = sorted(root.iterdir(), key=lambda p: p.name)
+            except OSError:
+                entries = []
+            prompt = (f"Repository: {root}\nTop-level: " +
+                      ", ".join(e.name for e in entries[:60]) + "\n\nTASK: " + prompt)
+        return redact_text(prompt)
+
+    def _run_command(self, command: str, task: Task) -> str:
+        command = str(command).strip()
+        if not command or self.BLOCKED.search(command) or not self.ALLOWED.match(command):
+            return "command rejected by safety allowlist"
+        root = Path(task.repo_path).expanduser().resolve() if task.repo_path else None
+        try:
+            proc = subprocess.run(command, shell=True, cwd=str(root) if root else None,
+                                  capture_output=True, text=True, timeout=30)
+            return _clip((proc.stdout or "") + "\n" + (proc.stderr or ""), 6000)
+        except Exception as exc:  # noqa: BLE001
+            return f"command failed: {self.redact(str(exc))}"
+
+    @staticmethod
+    def redact(text: Any) -> str:
+        return redact_text(text)
+
+    def run(self, task: Task) -> str:
+        tools = [{
+            "type": "function",
+            "function": {
+                "name": "run_command",
+                "description": "Run an allowlisted read-only inspection command in the repository.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"command": {"type": "string"}},
+                    "required": ["command"],
+                },
+            },
+        }]
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT +
+             " You may call run_command to inspect files, git state and VM state."},
+            {"role": "user", "content": self.build_prompt(task)},
+        ]
+        final = ""
+        for _ in range(self.max_rounds):
+            payload = json.dumps({
+                "model": getattr(task, "model", "") or self.model,
+                "messages": messages,
+                "tools": tools,
+                "stream": False,
+                "options": {"temperature": 0.2},
+            }, ensure_ascii=True).encode("utf-8")
+            request = urllib.request.Request(
+                self.API_URL, data=payload,
+                headers={"Content-Type": "application/json"}, method="POST",
+            )
+            try:
+                with self.opener(request, timeout=self.timeout) as response:
+                    data = json.loads(response.read().decode("utf-8", errors="replace"))
+            except Exception as exc:  # noqa: BLE001
+                raise RuntimeError(f"Ollama request failed: {self.redact(str(exc))}") from None
+            message = data.get("message") or {}
+            content = message.get("content") or ""
+            if content:
+                final = str(content)
+            calls = message.get("tool_calls") or []
+            if not calls:
+                break
+            messages.append(message)
+            for call in calls:
+                fn = call.get("function") or {}
+                args = fn.get("arguments") or {}
+                if isinstance(args, str):
+                    try:
+                        args = json.loads(args)
+                    except ValueError:
+                        args = {"command": args}
+                output = self._run_command(str(args.get("command", "")), task)
+                messages.append({"role": "tool", "content": output})
+            self.calls.append({"task_id": task.id, "model": self.model,
+                               "tool_calls": len(calls)})
+        if not final.strip():
+            raise RuntimeError("Ollama returned an empty completion")
+        return _clip(redact_text(final.strip()), 20000)
+
+
+class CodexBackend(AgentBackend):
+    """Senior developer lead: local authenticated Codex CLI agent.
+
+    Codex runs non-interactively in workspace-write mode. It is instructed to
+    confine its edits to autonomy/codex so its commits never sweep in work
+    belonging to other agents or the other OpenCode session.
+    """
+
+    def __init__(self, model: str = "gpt-6-luna", *, timeout: float = 1800.0,
+                 binary: str = "codex") -> None:
+        self.model = model
+        self.timeout = float(timeout)
+        self.binary = binary
+        self.calls: list[dict[str, Any]] = []
+
+    @property
+    def enabled(self) -> bool:
+        return True
+
+    def __repr__(self) -> str:
+        return f"CodexBackend(model={self.model!r})"
+
+    @staticmethod
+    def redact(text: Any) -> str:
+        return redact_text(text)
+
+    def build_prompt(self, task: Task) -> str:
+        root = Path(task.repo_path).expanduser().resolve() if task.repo_path else None
+        brief = ""
+        if root:
+            brief_path = root / "autonomy" / "CODEX_BRIEF.md"
+            if brief_path.is_file():
+                brief = brief_path.read_text(encoding="utf-8", errors="replace")[:8000]
+        return redact_text(
+            (brief + "\n\n---\n\n" if brief else "") +
+            f"You are the Senior Developer and lead of the development team.\n"
+            f"TASK: {task.instructions.strip()}\n\n"
+            "Write your findings, code, logs and solutions under autonomy/codex/. "
+            "Do not modify reports/ or files owned by other agents. "
+            "Never include API keys, tokens or credentials in any output. "
+            "Return a concise Markdown summary of what you did and where you wrote it."
+        )
+
+    def run(self, task: Task) -> str:
+        root = Path(task.repo_path).expanduser().resolve() if task.repo_path else Path.cwd()
+        out = Path("/home/tak_0/.local/state/sunshine-orchestrator/codex") / f"{task.id}.md"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        if out.exists():
+            out.unlink()
+        prompt = self.build_prompt(task)
+        cmd = [self.binary, "exec", "-C", str(root), "--sandbox", "workspace-write",
+               "--approve-for-me", "--color", "never", "-m", self.model,
+               "--output-last-message", str(out), "-"]
+        try:
+            proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
+                                  timeout=self.timeout, cwd=str(root))
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("Codex timed out") from None
+        except FileNotFoundError:
+            raise RuntimeError("codex binary not found") from None
+        if not out.exists():
+            raise RuntimeError(f"Codex produced no final message (rc={proc.returncode}): "
+                               + self.redact((proc.stderr or "")[-500:]))
+        result = out.read_text(encoding="utf-8", errors="replace").strip()
+        if not result:
+            raise RuntimeError("Codex returned an empty completion")
+        self.calls.append({"task_id": task.id, "model": self.model,
+                           "prompt_chars": len(prompt)})
+        return _clip(redact_text(result), 20000)
