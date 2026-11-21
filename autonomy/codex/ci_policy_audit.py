@@ -41,8 +41,11 @@ def main(argv: list[str]) -> int:
     root = Path(argv[1])
     paths = workflows(root)
     if not paths:
-        print(f"NO_WORKFLOWS: {root}/.github/workflows")
-        return 0
+        # An absent CI definition cannot be treated as a successful policy
+        # audit: doing so lets repositories silently lose their CI controls.
+        print(f"FINDING: NO_WORKFLOWS: {root}/.github/workflows")
+        print("RESULT: REVIEW_REQUIRED")
+        return 1
     all_findings = [finding for path in paths for finding in audit_workflow(path)]
     print(f"WORKFLOWS: {len(paths)}")
     for finding in all_findings:
