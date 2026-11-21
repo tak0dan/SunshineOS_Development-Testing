@@ -21,14 +21,14 @@ These paths are an upstream survey, not a local byte-for-byte source archive. Th
 
 `evolution-engine/src/evolution/journal_state.py::MigrationJournal.verify_completed_outputs` compares each completed operation's stored output hash with fresh observation supplied by discovery. It reports missing hashes, unobserved outputs, and mismatches. This is an explicit check for resume/recovery callers; it does not silently rewrite the journal or claim that a snapshot is valid.
 
-Regression coverage: `evolution-engine/tests/test_migration_journal_integrity.py::MigrationJournalIntegrityTests.test_MJI_005_completed_operation_requires_matching_observed_output` and `test_MJI_006_completed_operation_without_output_hash_fails_closed`.
+Regression coverage: `evolution-engine/tests/test_omarchy_recovery_consistency.py::OmarchyRecoveryConsistencyTests.test_OMR_001_completed_operation_requires_matching_observed_output` and `test_OMR_002_missing_observation_or_recorded_hash_fails_closed`.
 
 Exact verification command and result:
 
 ```text
-$ cd evolution-engine && python3 -m unittest tests.test_migration_journal_integrity
-......
-Ran 6 tests in 0.002s
+$ cd evolution-engine && python3 -m unittest tests.test_omarchy_recovery_consistency
+..
+Ran 2 tests in 0.001s
 OK
 ```
 
