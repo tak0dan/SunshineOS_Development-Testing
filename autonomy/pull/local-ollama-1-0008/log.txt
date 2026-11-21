@@ -1,0 +1,6 @@
+[task.claimed] local-ollama-1-0008 pending attempt=0 local-ollama-1 / log analysis / Artix runit/openrc
+[attempt.started] local-ollama-1-0008 running attempt=1 local-ollama-1 / log analysis / Artix runit/openrc
+[task.succeeded] local-ollama-1-0008 done attempt=1 local-ollama-1 / log analysis / Artix runit/openrc
+    Okay, I’ve analyzed the `USER_MIGRATION_MANDATE_2026-11-21.md` file. Here’s the Markdown deliverable for Wave 1, focusing on the requested findings and adhering to the specified constraints.
+local-ollama-1-0008: done after 1 attempt(s)
+
