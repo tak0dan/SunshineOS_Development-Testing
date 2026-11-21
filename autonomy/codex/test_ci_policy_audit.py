@@ -21,6 +21,24 @@ class CiPolicyAuditTests(unittest.TestCase):
         self.assertIn("test_sysvinit_inventory", contents)
         self.assertIn("test_sysvinit_repair", contents)
 
+    def test_ci_006_arch2026_systemd_workflow_is_present_and_policy_clean(self):
+        """CI_006: systemd inventory, repair, discovery and compatibility run in CI."""
+        repository = Path(__file__).resolve().parents[2]
+        workflow = repository / ".github/workflows/arch2026-systemd.yml"
+        self.assertTrue(workflow.is_file(), "Arch 2026 systemd CI workflow is missing")
+        self.assertEqual([], audit_workflow(workflow))
+        contents = workflow.read_text(encoding="utf-8")
+        for suite in (
+            "tests.test_systemd_inventory",
+            "tests.test_systemd_repair",
+            "tests.test_discovery",
+            "tests.test_compatibility",
+        ):
+            with self.subTest(suite=suite):
+                self.assertIn(suite, contents)
+        self.assertIn("pull_request:", contents)
+        self.assertIn("push:", contents)
+
     def test_ci_001_flags_mutable_actions_broad_write_and_fork_trigger(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "workflow.yml"
