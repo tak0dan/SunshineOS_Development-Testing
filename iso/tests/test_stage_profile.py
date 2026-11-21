@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -33,6 +34,26 @@ class StageProfileTests(unittest.TestCase):
             self.assertEqual(info["build_id"], "test-build")
             self.assertEqual(info["commands"], [f"sunshine-{n}" for n in stage_profile.SUBCOMMANDS])
             self.assertFalse(any(p.name == "__pycache__" for p in staged.rglob("*")))
+
+    def test_engine_target_package_is_staged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            staged = Path(tmp) / "staged"
+            result = stage_profile.stage(REPO, REPO / "iso/profile/sunshine", staged,
+                                         build_id="test-build")
+            self.assertTrue(result["validation"]["ok"], result["validation"])
+            engine = staged / "airootfs/opt/sunshine/evolution-engine"
+            self.assertTrue((engine / "src/target/__init__.py").is_file())
+            self.assertTrue((engine / "src/target/resolver.py").is_file())
+            self.assertFalse((engine / "bootstrap-rust/target").exists())
+
+            state = Path(tmp) / "state"
+            state.mkdir()
+            env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+            proc = subprocess.run(
+                [sys.executable, str(engine / "src/engine.py"),
+                 "--state-root", str(state), "--fixture", "clean-arch", "--plan"],
+                cwd=engine, env=env, capture_output=True, text=True, timeout=180)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
 
     def test_validation_detects_missing_wrapper(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -212,6 +212,17 @@ class ToolkitTests(unittest.TestCase):
         self.assertTrue(any(item["name"] == "os-identity" and item["status"] == "pass"
                             for item in report["sanity"]["evidence"]))
 
+    def test_migrate_accepts_legacy_sunshineos_identity(self):
+        (self.root / "etc/os-release").write_text(
+            'NAME="Sunshine OS"\nID=sunshineos\nID_LIKE="arch"\nPRETTY_NAME="Sunshine OS"\n')
+        args = sl.build_parser().parse_args([
+            "--root", str(self.root), "--state-root", str(self.base / "state"),
+            "--fixture", "clean-arch", "migrate", "--source", "sunshine",
+        ])
+        report = sl.cmd_migrate(args, self.runner())
+        self.assertEqual(report["status"], "pass")
+        self.assertEqual(report["detected_id"], "sunshineos")
+
 
 if __name__ == "__main__":
     unittest.main()

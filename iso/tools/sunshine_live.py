@@ -593,7 +593,8 @@ def cmd_migrate(args: argparse.Namespace, runner: Runner | None = None) -> dict[
     accepted = {
         "auto": True,
         "arch": identity == "arch" or "arch" in id_like or identity in {"garuda", "cachyos", "artix", "endeavouros"},
-        "sunshine": identity == "sunshine" or "sunshine" in id_like,
+        "sunshine": identity in {"sunshine", "sunshineos"}
+                    or "sunshine" in id_like or "sunshineos" in id_like,
     }
     if source not in accepted:
         data.update({"status": "fail", "reason": f"unknown source profile: {source!r}"})

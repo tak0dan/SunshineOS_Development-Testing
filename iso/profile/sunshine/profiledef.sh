@@ -12,6 +12,7 @@ buildmodes=('iso')
 bootmodes=('bios.syslinux'
            'uefi.systemd-boot')
 arch="x86_64"
+kernel_params="systemd.firstboot=no"
 pacman_conf="pacman.conf"
 airootfs_image_type="squashfs"
 airootfs_image_tool_options=('-comp' 'zstd' '-Xcompression-level' '3' '-b' '1M')
@@ -23,6 +24,7 @@ file_permissions=(
   ["/etc/pacman.d/gnupg"]="0:0:700"
   ["/etc/sunshine"]="0:0:755"
   ["/etc/sunshine/build-id"]="0:0:644"
+  ["/etc/systemd/system/serial-getty@.service.d/10-autologin.conf"]="0:0:644"
   ["/usr/share/sunshine/os-release"]="0:0:644"
   ["/usr/share/sunshine/BUILD_INFO.json"]="0:0:644"
   ["/usr/local/lib/sunshine/sunshine_live.py"]="0:0:755"

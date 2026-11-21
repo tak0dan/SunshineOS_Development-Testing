@@ -28,7 +28,7 @@ that explicitly instead of fabricating an image locally.
   systemd-boot, zstd squashfs, `install_dir=sunshine`, 4 GiB CoW, package list,
   mirror/pacman config, mkinitcpio-archiso hooks, SunshineOS identity hook, and
   optional startup assessment service enabled by `sunshine.assess=1`.
-- `iso/tests/` — 20 tests covering health/sanity, update previews and gating,
+- `iso/tests/` — 23 tests covering health/sanity, update previews and gating,
   engine argv binding, assessment-only repair, servicing evidence, staging and
   profile integrity.
 - `iso/README.md` — operator reference and honest build-host limitation.
@@ -42,7 +42,7 @@ incorrectly demanding SunshineOS identity.
 
 ## Verification actually run
 
-- 20 ISO toolkit tests: OK.
+- 23 ISO toolkit tests: OK.
 - 317 evolution-engine regression tests: OK.
 - `shellcheck` on build scripts, dispatcher, profiledef and generated wrappers: clean.
 - `./iso/build.sh --check`: staged profile validated; no missing files; profiledef syntax OK.

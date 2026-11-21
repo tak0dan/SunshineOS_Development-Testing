@@ -34,6 +34,13 @@ class ProfileTests(unittest.TestCase):
             self.assertIn("vmlinuz-linux", text)
             self.assertIn("cow_spacesize=4G", text)
 
+    def test_serial_console_autologin_is_configured(self):
+        dropin = PROFILE / "airootfs/etc/systemd/system/serial-getty@.service.d/10-autologin.conf"
+        self.assertTrue(dropin.is_file())
+        self.assertIn("--autologin root", dropin.read_text())
+        profiledef = (PROFILE / "profiledef.sh").read_text()
+        self.assertIn('kernel_params="systemd.firstboot=no"', profiledef)
+
     def test_pacman_configurations_declare_architecture(self):
         for path in (PROFILE / "pacman.conf", PROFILE / "airootfs/etc/pacman.conf"):
             self.assertTrue(path.is_file(), path)
