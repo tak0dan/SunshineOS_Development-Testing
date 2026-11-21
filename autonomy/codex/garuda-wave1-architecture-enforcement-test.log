@@ -1,0 +1,27 @@
+Garuda architecture enforcement — Wave 1 deepening
+Source checkout: /home/tak_0/.local/state/sunshine-orchestrator/iso/repos/garuda-toolbox
+Pinned revision: 430de5bc5356468318a5c677d8b2f6d2c4565a75
+
+Command:
+  python3 -m unittest autonomy/codex/test_garuda_catalog.py autonomy/codex/test_garuda_architecture_audit.py
+Result:
+  Ran 14 tests
+  OK
+  GARUDA_CAT_001–GARUDA_CAT_011 passed
+  GARUDA_ARCH_001–GARUDA_ARCH_003 passed
+
+Command:
+  python3 autonomy/codex/garuda_catalog.py
+Result:
+  validated 5 Garuda findings
+
+Command:
+  python3 autonomy/codex/garuda_architecture_audit.py
+Result:
+  emitted six line-level source observations; revision matched the pin
+  GARUDA-ARCH-001 maintenance.component.ts:272
+  GARUDA-ARCH-002 maintenance.component.ts:299
+  GARUDA-ARCH-003 maintenance.component.ts:174
+  GARUDA-ARCH-004 maintenance.component.ts:526
+  GARUDA-ARCH-005 boot-repair.service.ts:469
+  GARUDA-ARCH-006 ShellModule.ts:16
