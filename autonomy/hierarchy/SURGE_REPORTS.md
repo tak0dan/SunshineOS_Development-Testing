@@ -4643,3 +4643,58 @@ Added a consolidated deliverable index at [garuda-deliverable-consolidation-wave
 Added regression coverage in [test_garuda_deliverable_consolidation.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/test_garuda_deliverable_consolidation.py), covering `GARUDA_CONSOL_001–003`. All three tests passed; output is captured in [garuda-deliverable-consolidation-wave1-test.log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/garuda-deliverable-consolidation-wave1-test.log).
 
 I could not commit the files: Git failed to create `.git/index.lock` because `.git` is read-only in this workspace. The three artifacts remain uncommitted.
+
+
+## codex-lead-0049 (2026-11-21 04:06)
+
+## CachyOS Wave 1
+
+Surveyed cached CachyOS source and added a read-only boot hook auditor. The catalogue records exact source paths, adoption decisions, and where earlier CachyOS claims still need verification.
+
+Regression tests `AUDIT_001`–`AUDIT_004` pass. Output is in [cachyos-wave1-test.log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/cachyos-wave1-test.log). The implementation is [cachyos_boot_hook_audit.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/cachyos_boot_hook_audit.py), with findings and follow-up in [cachyos-development-lead-wave1.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/cachyos-development-lead-wave1.md).
+
+I could not commit the artifacts: Git could not create `.git/index.lock` because `.git` is read-only in this workspace. The CachyOS work remains uncommitted.
+
+
+## codex-lead-0050 (2026-11-21 04:10)
+
+## CachyOS Wave 1 integration
+
+Surveyed the cached CachyOS package hooks and systemd-boot manager, then added a static ALPM hook contract checker. It checks hook structure and required metadata without executing commands. The catalogue records exact source paths, observed behavior, adoption decisions, and qualification gaps.
+
+Regression tests `HOOK_001`–`HOOK_004` and `AUDIT_001`–`AUDIT_004` passed: **8 tests total**.
+
+- [Survey and change summary](</home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/cachyos-wave1-integration.md>)
+- [Checker](</home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/cachyos_alpm_hook.py>)
+- [Regression tests](</home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/test_cachyos_alpm_hook.py>)
+- [Test log](</home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/cachyos-wave1-integration-test.log>)
+
+I could not commit these files: Git could not create `.git/index.lock` because `.git` is read-only in this workspace. No files outside `autonomy/codex/` were changed by this increment.
+
+
+## codex-lead-0051 (2026-11-21 04:13)
+
+# CachyOS Wave 1 deepening
+
+Surveyed the cached CachyOS sources and corrected a false positive in the boot generation auditor. The findings and exact source paths are in [cachyos-wave1-deepening.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/cachyos-wave1-deepening.md).
+
+The cached `sdboot-manage` suppresses `mkinitcpio` errors at line 259, then checks for an empty UKI directory at lines 272–273. The auditor’s 12-line window missed that check; it now uses a bounded 16-line window. Regression IDs `AUDIT_005` and `AUDIT_006` cover the real spacing and the window boundary.
+
+The CachyOS package checkout contains `cachyos-hooks/PKGBUILD`, but not the upstream hook payloads it references, so those payload behaviors remain unverified.
+
+**Verification:** 10 tests passed: `AUDIT_001`–`AUDIT_006` and `HOOK_001`–`HOOK_004`. Evidence: [test log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/cachyos-wave1-deepening-test.log).
+
+I could not commit the changes: Git could not create `.git/index.lock` because the filesystem is read-only. The four task artifacts remain uncommitted.
+
+
+## codex-lead-0052 (2026-11-21 04:16)
+
+## CachyOS architecture enforcement — Wave 1
+
+Surveyed the cached CachyOS source at commit `97a55536e5f756d22199f043de4aa1a0d8eebc8a` and catalogued the exact hook, package recipe, and helper paths in [the change summary](autonomy/codex/cachyos-architecture-enforcement-wave1.md).
+
+Updated [cachyos_alpm_hook.py](autonomy/codex/cachyos_alpm_hook.py) to reject empty hook metadata and enforce path triggers with post-transaction timing for boot transitions. Added regression cases `HOOK_005`–`HOOK_009` in [test_cachyos_alpm_hook.py](autonomy/codex/test_cachyos_alpm_hook.py).
+
+Verification: **15 tests passed**. Evidence: [test log](autonomy/codex/cachyos-architecture-enforcement-test.log).
+
+I couldn’t commit the changes: Git could not create `.git/index.lock` because `.git` is read-only in this workspace. The work remains in the four listed files under `autonomy/codex/`.

@@ -1,0 +1,11 @@
+test_CKM_001_cachy_variant_requires_explicit_target (autonomy.codex.test_cachyos_kernel_migration.CachyKernelMigrationTests.test_CKM_001_cachy_variant_requires_explicit_target) ... ok
+test_CKM_002_target_without_fallback_blocks_source_retirement (autonomy.codex.test_cachyos_kernel_migration.CachyKernelMigrationTests.test_CKM_002_target_without_fallback_blocks_source_retirement) ... ok
+test_CKM_003_existing_fallback_and_mapped_target_are_reviewable (autonomy.codex.test_cachyos_kernel_migration.CachyKernelMigrationTests.test_CKM_003_existing_fallback_and_mapped_target_are_reviewable) ... ok
+test_CKM_004_active_kernel_cannot_be_removed_without_boot_validation (autonomy.codex.test_cachyos_kernel_migration.CachyKernelMigrationTests.test_CKM_004_active_kernel_cannot_be_removed_without_boot_validation) ... ok
+test_CKM_005_non_cachy_kernel_is_preserved_without_replacement (autonomy.codex.test_cachyos_kernel_migration.CachyKernelMigrationTests.test_CKM_005_non_cachy_kernel_is_preserved_without_replacement) ... ok
+test_CKM_006_blank_target_identity_fails_closed (autonomy.codex.test_cachyos_kernel_migration.CachyKernelMigrationTests.test_CKM_006_blank_target_identity_fails_closed) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.000s
+
+OK
