@@ -1,0 +1,1 @@
+Added fail-closed assessment of expected boot/kernel artifacts, with four regression cases. Command: `python3 -m unittest tests/test_boot_artifact_repair.py -v` from `evolution-engine/`; result: 4 passed. Evidence and catalogue: `autonomy/codex/cachyos-repair-wave1.md`, `autonomy/codex/cachyos-repair-wave1-test.log`.

@@ -1,0 +1,5 @@
+Command (cwd `evolution-engine/`): `python3 -m unittest tests/test_research_catalog.py -v`
+Result: 5 tests passed; output captured at `autonomy/codex/cachyos-deliverable-consolidation-test.log`.
+
+Command (cwd `evolution-engine/`): `PYTHONPATH=. python3 - <<'PY' ... catalog.verify_sources(Path('/home/tak_0/.local/state/sunshine-orchestrator/iso/repos/cachyos-tools')) ... PY`
+Result: verified source records: 9; errors: [].

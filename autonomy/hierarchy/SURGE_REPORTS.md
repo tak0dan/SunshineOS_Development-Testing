@@ -4698,3 +4698,53 @@ Updated [cachyos_alpm_hook.py](autonomy/codex/cachyos_alpm_hook.py) to reject em
 Verification: **15 tests passed**. Evidence: [test log](autonomy/codex/cachyos-architecture-enforcement-test.log).
 
 I couldn’t commit the changes: Git could not create `.git/index.lock` because `.git` is read-only in this workspace. The work remains in the four listed files under `autonomy/codex/`.
+
+
+## codex-lead-0054 (2026-11-21 04:22)
+
+Implemented a read-only, fail-closed boot artifact assessment in [boot_artifact_repair.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/src/evolution/tools/boot_artifact_repair.py:1), based on CachyOS’s `systemd-boot-manager/sdboot-manage` behavior. The source catalogue and change summary are in [cachyos-repair-wave1.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/cachyos-repair-wave1.md).
+
+Regression tests `T_CACHYOS_BOOT_REPAIR_001`–`004` pass.
+
+Command, run from `evolution-engine/`: `python3 -m unittest tests/test_boot_artifact_repair.py -v`  
+Result: **Ran 4 tests — OK.** Full output: [test log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/cachyos-repair-wave1-test.log).
+
+Task notes are in [autonomy/pull/codex-lead-0053](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/pull/codex-lead-0053). I could not commit: Git reported `.git/index.lock: Read-only file system`. The new files remain uncommitted.
+
+
+## codex-lead-0055 (2026-11-21 04:27)
+
+## CachyOS CI hardening — Wave 1
+
+Added a read-only CI policy auditor at [ci_policy.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/src/evolution/tools/ci_policy.py) and regression tests `CI_CACHYOS_001`–`003` in [test_ci_policy.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/tests/test_ci_policy.py).
+
+The survey catalogs exact CachyOS workflow and script paths, observed risks, and qualification limits in [cachyos-ci-hardening-wave1.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/cachyos-ci-hardening-wave1.md). The audit flagged unpinned actions and missing permissions declarations across all three workflows; it also flagged `:latest`, unrestricted builder sudo, and `--skippgpcheck` in `.github/workflows/makepkg.yml`. Detailed findings are in [cachyos-ci-hardening-audit.log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/cachyos-ci-hardening-audit.log).
+
+**Verification** from `evolution-engine/`:
+
+```sh
+python3 -m unittest tests/test_ci_policy.py -v
+```
+
+Result: **Ran 3 tests — OK.** Output: [cachyos-ci-hardening-test.log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/cachyos-ci-hardening-test.log).
+
+Task notes are in [autonomy/pull/codex-lead-0055](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/pull/codex-lead-0055). The cached CachyOS checkout and `reports/` were left unchanged. I could not commit: Git could not create `.git/index.lock` because `.git` is read-only in this workspace.
+
+
+## codex-lead-0056 (2026-11-21 04:32)
+
+## CachyOS Wave 1 consolidation
+
+Added a SHA-256-verifiable catalogue of nine CachyOS source files, with exact paths, findings, adoption decisions, and evidence limits. The engine verifier rejects missing or changed sources and unsafe paths. The catalogue and implementation follow AD-05, AD-07, AD-11, AD-14, and M-07/M-08.
+
+- Source catalogue: [cachyos-wave1.json](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/fixtures/research/cachyos-wave1.json)
+- Verifier: [research_catalog.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/src/evolution/research_catalog.py)
+- Tests: [test_research_catalog.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/tests/test_research_catalog.py) — `CAT_001`–`CAT_005`
+- Findings and exact source map: [deliverable summary](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/cachyos-deliverable-consolidation-wave1.md)
+- Test output: [test log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/cachyos-deliverable-consolidation-test.log)
+- Source hash evidence: [verification log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/cachyos-deliverable-consolidation-source-verification.log)
+- Pull notes: [codex-lead-cachyos-consolidation-0001](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/pull/codex-lead-cachyos-consolidation-0001/)
+
+Command from `evolution-engine/`: `python3 -m unittest tests/test_research_catalog.py -v` — **5 tests passed**. Hash verification matched all nine files in the cached CachyOS checkout.
+
+I could not commit: Git staging failed because `.git/index.lock` is on a read-only filesystem.
