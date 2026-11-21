@@ -1,0 +1,7 @@
+$ cd evolution-engine
+$ python3 -m unittest tests/test_sysvinit_inventory.py tests/test_sysvinit_repair.py tests/test_arch2015_sysvinit.py tests/test_discovery.py
+..................
+----------------------------------------------------------------------
+Ran 18 tests in 0.042s
+
+OK
