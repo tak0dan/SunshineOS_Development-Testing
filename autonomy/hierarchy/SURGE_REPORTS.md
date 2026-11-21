@@ -4222,3 +4222,90 @@ Verification: 33 focused regression tests passed; CI policy audit reported one w
 /var/log/syslog
 /var/log/messages
 ```
+
+
+## codex-lead-0024 (2026-11-21 02:35)
+
+# Arch 2015 SysV init consolidation — Wave 1
+
+Consolidated the repository-backed survey, exact path catalogue, evidence limits, and regression results in [the deliverable](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2015-sysvinit-consolidation-wave1.md).
+
+The existing implementation parses historical `DAEMONS` declarations without executing shell syntax and provides a read-only service-script assessment. Regression tests **T-ARCH2015-SYSV-004 through -012** and discovery coverage passed: **18 tests**. The test output is recorded in [the evidence log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2015-sysvinit-consolidation-wave1-test.log).
+
+The repository contains no captured Arch 2015 SysV system, so this verifies code behavior, not recovery qualification against that historical system. I could not commit the two deliverable files: Git reported that `.git/index.lock` could not be created because `.git` is read-only in this environment.
+
+
+## codex-lead-0025 (2026-11-21 02:38)
+
+## Arch 2026 systemd — Wave 1
+
+Added a read-only systemd unit inventory assessor. Failed or malformed inventory stays unknown and blocks assessment; masked units block desired enabled/present states. The tool does not execute repairs.
+
+The survey records verified repository paths and flags inherited hook and kernel claims whose cited evidence or mapped files are absent. It does not claim byte-level verification of Arch 2026 package contents.
+
+- Survey and change summary: [arch2026-systemd-wave1.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2026-systemd-wave1.md)
+- Implementation: [systemd_inventory.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/src/evolution/tools/systemd_inventory.py)
+- Regression tests: [test_systemd_inventory.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/tests/test_systemd_inventory.py)
+- Test IDs: `T-ARCH2026-SYSTEMD-001` through `-005`; all 5 passed.
+- Test log: [arch2026-systemd-wave1-test.log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2026-systemd-wave1-test.log)
+
+I could not commit the files: Git failed to create `.git/index.lock` because the index filesystem is read-only.
+
+
+## codex-lead-0026 (2026-11-21 02:41)
+
+# Arch 2026 systemd — Wave 1
+
+Surveyed the repository’s systemd discovery, service planning, and unit inventory paths. Extended the fail-closed inventory parser to recognize `busname` and `snapshot` unit types, with regression test **T-ARCH2026-SYSTEMD-006**. The existing tests **T-ARCH2026-SYSTEMD-001–005** also pass.
+
+- Deliverable: [arch2026-systemd-wave1-integration.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2026-systemd-wave1-integration.md)
+- Test log: [arch2026-systemd-wave1-integration-test.log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2026-systemd-wave1-integration-test.log)
+- Code and test: [systemd_inventory.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/src/evolution/tools/systemd_inventory.py), [test_systemd_inventory.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/tests/test_systemd_inventory.py)
+
+The Arch ISO was identified, but the read-only path query did not reveal an extracted systemd root tree. The report marks upstream file and hook details as unverified.
+
+I could not commit the changes: `.git` is read-only in this workspace, and Git could not create `.git/index.lock`.
+
+
+## codex-lead-0027 (2026-11-21 02:44)
+
+## Arch 2026 systemd regression survey
+
+Added six regression cases, **T-ARCH2026-SYSTEMD-007 through -012**, covering duplicate and unknown rows, enabled aliases, masked-runtime units, absent targets, and invalid desired states. The inventory remains read-only and blocks assessment when evidence is incomplete.
+
+The suite passed: **12 tests**. The survey distinguishes verified repository behavior from upstream Arch details that remain unverified.
+
+- [Survey and change summary](</home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2026-systemd-wave1-regression.md>)
+- [Regression tests](</home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/tests/test_systemd_inventory.py>)
+- [Test log](</home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2026-systemd-wave1-regression-test.log>)
+
+I couldn’t commit: `.git` is read-only in this workspace, and staging failed because Git could not create `.git/index.lock`.
+
+
+## codex-lead-0028 (2026-11-21 02:47)
+
+# Arch 2026 systemd architecture enforcement — Wave 1
+
+Added an inventory-gated planning method, `ServiceSupervisor.plan_checked`, in [service_supervision.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/src/evolution/tools/service_supervision.py:117). It checks the requested service states against observed systemd unit inventory before returning a plan. Incomplete inventories, masked units, and units needing package installation or removal block planning. It does not execute commands or perform repairs.
+
+The survey and exact-path catalogue are in [arch2026-systemd-wave1-enforcement.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2026-systemd-wave1-enforcement.md). It grounds the change in AD-05, AD-09, AD-14, and AD-24, and records that Arch ISO unit and hook contents remain unverified.
+
+Regression tests **T-ARCH2026-SYSTEMD-013–016** cover masked units, failed inventory, absent units, and an existing disabled unit. All 16 systemd inventory tests passed. The test log is [arch2026-systemd-wave1-enforcement-test.log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2026-systemd-wave1-enforcement-test.log).
+
+I could not commit the changes because this workspace grants read-only access to `.git`.
+
+
+## codex-lead-0029 (2026-11-21 02:49)
+
+## Arch 2026 systemd survey — Wave 1
+
+Added the verified repository catalogue and test evidence:
+
+- [Catalogue and change summary](</home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2026-systemd-wave1-catalogue.md>)
+- [Test log](</home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2026-systemd-wave1-final-test.log>)
+
+Fixed a fail-closed gap: `bad` unit-file states now block inventory assessment, so checked service planning cannot emit commands for a broken unit. Regression **T-ARCH2026-SYSTEMD-017** covers the block. The full inventory suite passed: **17 tests**.
+
+The catalogue grounds the survey in the migration mandate and architecture decisions, and records that Arch ISO unit and hook contents remain unverified in this checkout.
+
+I could not commit the changes: Git failed to create `.git/index.lock` because the index is on a read-only filesystem. The implementation, regression test and evidence remain in the working tree.

@@ -54,3 +54,9 @@
 - 2026-11-21 02:25:03 cycle 151: {"done": 180, "failed": 7, "pending": 14, "retry": 312, "running": 1}; idle refilled: ['codex-lead']
 
 - 2026-11-21 02:30:13 cycle 166: {"done": 182, "failed": 7, "pending": 14, "retry": 342, "running": 1}; idle refilled: ['codex-lead']
+
+- 2026-11-21 02:35:31 cycle 181: {"done": 184, "failed": 7, "pending": 14, "retry": 365, "running": 2}; idle refilled: []
+
+- 2026-11-21 02:40:42 cycle 196: {"done": 186, "failed": 7, "pending": 14, "retry": 382, "running": 2}; idle refilled: []
+
+- 2026-11-21 02:45:57 cycle 211: {"done": 188, "failed": 7, "pending": 14, "retry": 411, "running": 2}; idle refilled: []
