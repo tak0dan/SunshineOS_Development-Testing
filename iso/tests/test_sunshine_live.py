@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "iso" / "tools"))
@@ -199,7 +200,11 @@ class ToolkitTests(unittest.TestCase):
         args = sl.build_parser().parse_args([
             "--root", str(self.root), "rescue", "--reboot-state", "settled",
         ])
-        report = sl.cmd_rescue(args, runner)
+        # CI containers do not necessarily install snapper; make the healthy
+        # path independent of the build host's optional tools.
+        with patch.object(sl.shutil, "which",
+                          side_effect=lambda name: f"/usr/bin/{name}" if name == "snapper" else None):
+            report = sl.cmd_rescue(args, runner)
         self.assertEqual(report["status"], "pass")
         self.assertTrue(report["assessment"]["healthy"])
         self.assertFalse(report["assessment"]["blocked"])
