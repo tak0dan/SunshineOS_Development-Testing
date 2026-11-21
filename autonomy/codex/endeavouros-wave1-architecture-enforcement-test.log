@@ -1,0 +1,7 @@
+$ cd evolution-engine && python3 -m unittest tests.test_source_matrix tests.test_compatibility tests.test_discovery
+...................................
+----------------------------------------------------------------------
+Ran 35 tests in 2.158s
+
+OK
+exit_code=0
