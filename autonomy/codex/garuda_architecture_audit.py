@@ -19,6 +19,9 @@ CHECKS = {
     "GARUDA-ARCH-004": ("packages/renderer/src/app/components/maintenance/maintenance.component.ts", r"const cmd = `cp -r \$\{file\}", "Config reset interpolates paths into a shell command"),
     "GARUDA-ARCH-005": ("packages/renderer/src/app/components/boot-repair/boot-repair.service.ts", r"dd if=\"\$\{filename\}" , "Boot repair constructs a raw-device write using dd"),
     "GARUDA-ARCH-006": ("packages/main/src/modules/ShellModule.ts", r"ipcMain\.handle\('shell:spawnStreaming'[\s\S]{0,500}spawn\(command, args", "Shell IPC accepts command and argv from its caller"),
+    "GARUDA-ARCH-007": ("packages/main/src/modules/AutoUpdater.ts", r"checkForUpdatesAndNotify\(this\.#notification\)", "Desktop application updater checks packaged app releases"),
+    "GARUDA-ARCH-008": ("packages/main/src/modules/AutoUpdater.ts", r"this\.logger\.error\([\s\S]{0,240}return null", "Application updater errors are logged and suppressed so the app continues"),
+    "GARUDA-ARCH-009": ("packages/renderer/src/app/components/system-status/system-status.component.ts", r"garuda-update --skip-mirrorlist[\s\S]{0,100}pacman -Syu", "System update flow selects Garuda updater or falls back to pacman"),
 }
 
 

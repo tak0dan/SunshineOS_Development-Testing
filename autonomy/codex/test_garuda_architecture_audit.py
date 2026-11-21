@@ -15,8 +15,16 @@ SOURCE = Path("/home/tak_0/.local/state/sunshine-orchestrator/iso/repos/garuda-t
 class GarudaArchitectureAuditTests(unittest.TestCase):
     def test_GARUDA_ARCH_001_pinned_checkout_has_all_catalogued_architecture_evidence(self):
         result = audit(SOURCE, PIN)
-        self.assertEqual(len(result["findings"]), 6)
+        self.assertEqual(len(result["findings"]), 9)
         self.assertTrue(all(item["line"] > 0 and item["evidence"] for item in result["findings"]))
+
+    def test_GARUDA_ARCH_004_app_update_and_os_update_are_distinct_paths(self):
+        result = audit(SOURCE, PIN)
+        by_id = {item["id"]: item for item in result["findings"]}
+        self.assertEqual(by_id["GARUDA-ARCH-007"]["source_path"], "packages/main/src/modules/AutoUpdater.ts")
+        self.assertEqual(by_id["GARUDA-ARCH-009"]["source_path"], "packages/renderer/src/app/components/system-status/system-status.component.ts")
+        self.assertIn("application updater", by_id["GARUDA-ARCH-007"]["description"])
+        self.assertIn("System update", by_id["GARUDA-ARCH-009"]["description"])
 
     def test_GARUDA_ARCH_002_unexpected_revision_fails_closed(self):
         with self.assertRaisesRegex(ValueError, "revision mismatch"):
