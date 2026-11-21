@@ -16,7 +16,7 @@ class HookIssue:
 
 _KEY = re.compile(r"^([A-Za-z][A-Za-z0-9]*)\s*=\s*(.*?)\s*$")
 _ALLOWED = {
-    "Trigger": {"Type", "Operation", "Target", " na"},
+    "Trigger": {"Type", "Operation", "Target"},
     "Action": {"Description", "When", "Exec", "NeedsTargets"},
 }
 
@@ -53,6 +53,8 @@ def audit_alpm_hook(source: str) -> tuple[HookIssue, ...]:
         values = sections[current].setdefault(key, [])
         if key not in ("Operation", "Target") and values:
             issues.append(HookIssue("HOOK_KEY_DUPLICATE", f"line {number}: duplicate {key}"))
+        if not value:
+            issues.append(HookIssue("HOOK_VALUE_EMPTY", f"line {number}: {current}.{key} must not be empty"))
         values.append(value)
 
     trigger = sections.get("Trigger", {})
@@ -71,4 +73,34 @@ def audit_alpm_hook(source: str) -> tuple[HookIssue, ...]:
         issues.append(HookIssue("HOOK_TIMING_INVALID", "Action.When must be PreTransaction or PostTransaction"))
     if action.get("Exec") and any(not v.startswith("/") for v in action["Exec"]):
         issues.append(HookIssue("HOOK_EXEC_NOT_ABSOLUTE", "Action.Exec must use an absolute executable path"))
+    return tuple(issues)
+
+
+def audit_boot_transition_hook(source: str) -> tuple[HookIssue, ...]:
+    """Apply SunshineOS boot-transition constraints to a parsed ALPM hook.
+
+    Boot artifact changes run after the package transaction so the observed
+    installed package state is coherent. Triggers must identify paths because
+    kernel and bootloader artifacts can be supplied by more than one package.
+    This validates policy metadata only; it does not prove the command's
+    behavior or replace staged boot artifact verification.
+    """
+    issues = list(audit_alpm_hook(source))
+    parsed: dict[str, dict[str, list[str]]] = {"Trigger": {}, "Action": {}}
+    current: str | None = None
+    for raw in source.splitlines():
+        line = raw.strip()
+        if line.startswith("[") and line.endswith("]"):
+            current = line[1:-1]
+            continue
+        match = _KEY.fullmatch(line)
+        if current in parsed and match and match.group(1) in _ALLOWED[current]:
+            parsed[current].setdefault(match.group(1), []).append(match.group(2))
+    trigger, action = parsed["Trigger"], parsed["Action"]
+    if trigger.get("Type") and any(value != "Path" for value in trigger["Type"]):
+        issues.append(HookIssue("BOOT_HOOK_TRIGGER_NOT_PATH", "boot transition hooks must observe artifact paths"))
+    if action.get("When") and any(value != "PostTransaction" for value in action["When"]):
+        issues.append(HookIssue("BOOT_HOOK_NOT_POST_TRANSACTION", "boot transition hooks must run after package state changes"))
+    if not any(op in {"Install", "Upgrade", "Remove"} for op in trigger.get("Operation", [])):
+        issues.append(HookIssue("BOOT_HOOK_OPERATION_MISSING", "boot transition hook must cover an artifact lifecycle operation"))
     return tuple(issues)
