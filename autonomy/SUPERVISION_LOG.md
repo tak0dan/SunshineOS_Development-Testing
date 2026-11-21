@@ -20,3 +20,9 @@
 - 2026-11-21 01:01:42 cycle 106: {"done": 85, "failed": 47, "high": 3, "retry": 853, "running": 36}; idle refilled: ['qc-2', 'qc-3', 'sub-code-kernel', 'sub-migration-ledger', 'sub-repair-engine', 'surge-01', 'surge-02', 'surge-04', 'surge-14', 'surge-17', 'surge-25', 'surge-28']
 
 - 2026-11-21 01:06:43 cycle 1: {"done": 155, "retry": 50}; idle refilled: ['qc-1', 'sub-design-dev', 'sub-migration-recovery', 'sub-repair-gui', 'sub-research-hooks', 'surge-03', 'surge-06', 'surge-08', 'surge-10', 'surge-12', 'surge-13', 'surge-20', 'surge-21', 'surge-23', 'surge-24', 'surge-30']
+
+- 2026-11-21 01:11:46 cycle 16: {"done": 155, "failed": 11, "pending": 14, "retry": 98}; idle refilled: []
+
+- 2026-11-21 01:16:47 cycle 31: {"done": 155, "failed": 9, "pending": 14, "retry": 143}; idle refilled: []
+
+- 2026-11-21 01:21:49 cycle 46: {"done": 155, "failed": 9, "pending": 14, "retry": 168}; idle refilled: []
