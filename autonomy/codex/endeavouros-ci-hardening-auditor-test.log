@@ -1,0 +1,15 @@
+test_ci_001_flags_mutable_actions_broad_write_and_fork_trigger (test_ci_policy_audit.CiPolicyAuditTests.test_ci_001_flags_mutable_actions_broad_write_and_fork_trigger) ... ok
+test_ci_002_accepts_sha_pinned_read_only_workflow (test_ci_policy_audit.CiPolicyAuditTests.test_ci_002_accepts_sha_pinned_read_only_workflow) ... ok
+test_ci_003_distinguishes_absent_workflow_tree (test_ci_policy_audit.CiPolicyAuditTests.test_ci_003_distinguishes_absent_workflow_tree) ... ok
+test_ci_004_absent_workflow_tree_fails_closed (test_ci_policy_audit.CiPolicyAuditTests.test_ci_004_absent_workflow_tree_fails_closed) ... ok
+test_ci_005_arch2015_sysv_workflow_is_present_and_policy_clean (test_ci_policy_audit.CiPolicyAuditTests.test_ci_005_arch2015_sysv_workflow_is_present_and_policy_clean)
+CI_005: the focused legacy-init suite is wired into read-only CI. ... ok
+test_ci_006_arch2026_systemd_workflow_is_present_and_policy_clean (test_ci_policy_audit.CiPolicyAuditTests.test_ci_006_arch2026_systemd_workflow_is_present_and_policy_clean)
+CI_006: systemd inventory, repair, discovery and compatibility run in CI. ... ok
+test_ci_007_endeavouros_regressions_are_wired_and_policy_clean (test_ci_policy_audit.CiPolicyAuditTests.test_ci_007_endeavouros_regressions_are_wired_and_policy_clean)
+CI_007: EndeavourOS lineage and package ownership checks run in read-only CI. ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.004s
+
+OK

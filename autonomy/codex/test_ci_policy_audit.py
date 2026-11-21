@@ -39,6 +39,24 @@ class CiPolicyAuditTests(unittest.TestCase):
         self.assertIn("pull_request:", contents)
         self.assertIn("push:", contents)
 
+    def test_ci_007_endeavouros_regressions_are_wired_and_policy_clean(self):
+        """CI_007: EndeavourOS lineage and package ownership checks run in read-only CI."""
+        repository = Path(__file__).resolve().parents[2]
+        workflow = repository / ".github/workflows/endeavouros.yml"
+        self.assertTrue(workflow.is_file(), "EndeavourOS CI workflow is missing")
+        self.assertEqual([], audit_workflow(workflow))
+        contents = workflow.read_text(encoding="utf-8")
+        for suite in (
+            "tests.test_compatibility",
+            "tests.test_discovery",
+            "tests.test_source_matrix",
+        ):
+            with self.subTest(suite=suite):
+                self.assertIn(suite, contents)
+        self.assertIn("pull_request:", contents)
+        self.assertIn("push:", contents)
+        self.assertIn("contents: read", contents)
+
     def test_ci_001_flags_mutable_actions_broad_write_and_fork_trigger(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "workflow.yml"
