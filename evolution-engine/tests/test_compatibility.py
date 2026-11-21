@@ -52,12 +52,102 @@ class CompatibilityTests(unittest.TestCase):
         self.assertTrue(report.supported)
         self.assertEqual(report.blockers, [])
 
+    def test_endeavouros_with_arch_lineage_is_conditional(self):
+        """T-ENDEAVOUR-COMP-001: derive support from observed os-release lineage."""
+        state = _arch(distribution="endeavouros")
+        state.observe(_obs("system.os-release", "os-release-parsed", "high", "configured"))
+        state.observations["system.os-release"].evidence.append("ID_LIKE=arch")
+        report = classify_source(state)
+        self.assertTrue(report.supported)
+        self.assertEqual(report.profile, "arch-customized")
+        self.assertEqual(report.support_level, "conditional")
+        self.assertIn("os-release ID_LIKE includes arch", report.evidence)
+
+    def test_endeavouros_without_arch_lineage_is_blocked(self):
+        """T-ENDEAVOUR-COMP-002: do not infer lineage from distro name alone."""
+        report = classify_source(_arch(distribution="endeavouros"))
+        self.assertFalse(report.supported)
+        self.assertTrue(any("ID_LIKE=arch" in b for b in report.blockers))
+
+    def test_endeavouros_unconfigured_os_release_evidence_is_blocked(self):
+        """T-ENDEAVOUR-COMP-003: stale evidence cannot qualify source lineage."""
+        state = _arch(distribution="endeavouros")
+        state.observe(_obs("system.os-release", "os-release-parsed", "high", "absent"))
+        state.observations["system.os-release"].evidence.append("ID_LIKE=arch")
+        report = classify_source(state)
+        self.assertFalse(report.supported)
+        self.assertTrue(any("lacks corroborating ID_LIKE=arch" in b for b in report.blockers))
+
+    def test_endeavouros_lineage_requires_exact_arch_token(self):
+        """T-ENDEAVOUR-COMP-004: similar strings are not Arch lineage."""
+        state = _arch(distribution="endeavouros")
+        state.observe(_obs("system.os-release", "os-release-parsed", "high", "configured"))
+        state.observations["system.os-release"].evidence.append("ID_LIKE=archlinux")
+        report = classify_source(state)
+        self.assertFalse(report.supported)
+        self.assertTrue(any("lacks corroborating ID_LIKE=arch" in b for b in report.blockers))
+
+    def test_garuda_with_arch_lineage_is_conditional(self):
+        """T-GARUDA-COMP-001: Garuda lineage requires observed os-release evidence."""
+        state = _arch(distribution="garuda")
+        state.observe(_obs("system.os-release", "os-release-parsed", "high", "configured"))
+        state.observations["system.os-release"].evidence.append("ID_LIKE=arch")
+        report = classify_source(state)
+        self.assertTrue(report.supported)
+        self.assertEqual(report.profile, "arch-customized")
+        self.assertEqual(report.support_level, "conditional")
+        self.assertIn("os-release ID_LIKE includes arch", report.evidence)
+
+    def test_garuda_without_arch_lineage_is_blocked(self):
+        """T-GARUDA-COMP-002: distro branding alone must not qualify lineage."""
+        report = classify_source(_arch(distribution="garuda"))
+        self.assertFalse(report.supported)
+        self.assertTrue(any("garuda source lacks corroborating ID_LIKE=arch" in b for b in report.blockers))
+
+    def test_garuda_stale_arch_lineage_is_blocked(self):
+        """T-GARUDA-COMP-003: failed os-release discovery cannot authorize migration."""
+        state = _arch(distribution="garuda")
+        state.observe(_obs("system.os-release", "os-release-parsed", "high", "absent"))
+        state.observations["system.os-release"].evidence.append("ID_LIKE=arch")
+        report = classify_source(state)
+        self.assertFalse(report.supported)
+        self.assertTrue(any("garuda source lacks corroborating ID_LIKE=arch" in b for b in report.blockers))
+
+    def test_garuda_lineage_requires_exact_arch_token(self):
+        """T-GARUDA-COMP-004: lookalike ID_LIKE values are not accepted."""
+        state = _arch(distribution="garuda")
+        state.observe(_obs("system.os-release", "os-release-parsed", "high", "configured"))
+        state.observations["system.os-release"].evidence.append("ID_LIKE=archlinux")
+        report = classify_source(state)
+        self.assertFalse(report.supported)
+        self.assertTrue(any("garuda source lacks corroborating ID_LIKE=arch" in b for b in report.blockers))
+
+    def test_garuda_conditional_profile_respects_strict_policy(self):
+        """T-GARUDA-COMP-005: strict preflight may reject conditional Garuda."""
+        state = _arch(distribution="garuda")
+        state.observe(_obs("system.os-release", "os-release-parsed", "high", "configured"))
+        state.observations["system.os-release"].evidence.append("ID_LIKE=arch")
+        report = preflight_source(state, allow_conditional=False)
+        self.assertFalse(report.supported)
+        self.assertEqual(report.support_level, "unsupported")
+        self.assertTrue(any("conditional source profile" in b for b in report.blockers))
+
     def test_foreign_packages_make_conditional_not_unsupported(self):
         report = classify_source(_arch(foreign=True))
         self.assertEqual(report.profile, "arch-customized")
         self.assertEqual(report.support_level, "conditional")
         self.assertTrue(report.supported)
         self.assertTrue(any("foreign" in w for w in report.warnings))
+
+    def test_incomplete_package_ownership_inventory_blocks_source(self):
+        """T-ENDEAVOUR-PKG-002: uncertain foreign ownership blocks migration."""
+        state = _arch(distribution="endeavouros")
+        state.observe(_obs("system.os-release", "os-release-parsed", "high", "configured"))
+        state.observations["system.os-release"].evidence.append("ID_LIKE=arch")
+        state.observe(_obs("packages.ownership-inventory", "package-ownership-inventory", "low", "absent"))
+        report = classify_source(state)
+        self.assertFalse(report.supported)
+        self.assertTrue(any("ownership inventory is incomplete" in b for b in report.blockers))
 
     def test_luks_and_partial_sunshine_are_conditional(self):
         report = classify_source(_arch(luks=True, partial=True))
@@ -81,6 +171,23 @@ class CompatibilityTests(unittest.TestCase):
         report = classify_source(_arch(init_system="openrc"))
         self.assertFalse(report.supported)
         self.assertTrue(any("init system" in b for b in report.blockers))
+
+    def test_arch_2015_sysvinit_requires_recovery_bridge(self):
+        """T-ARCH2015-SYSV-003: never run the ordinary transformer on SysV."""
+        from src.evolution.recovery import (
+            BASELINE_ID,
+            BRIDGE_ID,
+            RECOVERY_BASELINE_ID,
+            recovery_path,
+        )
+
+        report = classify_source(_arch(init_system="sysvinit"))
+        self.assertFalse(report.supported)
+        self.assertTrue(any("sysvinit" in blocker for blocker in report.blockers))
+        self.assertEqual(
+            recovery_path(RECOVERY_BASELINE_ID, "E040"),
+            [RECOVERY_BASELINE_ID, BRIDGE_ID, BASELINE_ID, "E040"],
+        )
 
     def test_non_pacman_is_blocked(self):
         report = classify_source(_arch(package_manager="apt"))

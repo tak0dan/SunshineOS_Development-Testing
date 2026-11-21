@@ -31,6 +31,7 @@ FIXTURE_NAMES = (
     "arch-five-year-old",
     "arch-ext4-luks-systemd-boot",
     "arch-btrfs-grub-nvidia-aur",
+    "endeavouros",
     "old-sunshine",
 )
 
@@ -180,6 +181,7 @@ class FixtureExecutor:
             decided_hyprland = name in {
                 "clean-arch", "arch-five-year-old",
                 "arch-ext4-luks-systemd-boot", "arch-btrfs-grub-nvidia-aur",
+                "endeavouros",
             }
             if decided_hyprland or name in _DESKTOP_PACKAGES or name == "old-sunshine":
                 session.mkdir(parents=True, exist_ok=True)

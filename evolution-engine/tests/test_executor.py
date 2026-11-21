@@ -225,6 +225,25 @@ class ExecutorTests(unittest.TestCase):
         self.assertFalse(second.changed)
         self.assertEqual(baseline.count("pacman -Syu --noconfirm"), 1)
 
+    def test_OMR_003_resume_does_not_skip_completed_marker_without_probe(self):
+        plan = standard_plan()
+        journal = Journal(self.root, plan.id)
+        journal.start(plan)
+        # Simulate an older migration marker whose output has no supported
+        # probe, as can happen when /home survives a root snapshot rollback.
+        journal.complete("comp", Result(True, "registered"), {
+            "operation": "LegacyUnknownOperation",
+        })
+
+        result = execute_plan(plan, self.root, self.fake, resume=True)
+
+        self.assertEqual(result.status, "success", result.recovery_report)
+        self.assertNotIn("comp", result.skipped_ops)
+        reconciliations = [entry for entry in Journal(self.root, plan.id).load().entries
+                           if entry.id == "comp:reconcile"]
+        self.assertTrue(reconciliations)
+        self.assertIn("unknown-confidence", reconciliations[0].output)
+
     def test_dry_run_changes_nothing(self):
         plan = removal_plan()
         plan.operations += [

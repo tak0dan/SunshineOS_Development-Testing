@@ -149,7 +149,8 @@ def _detect_init_system(state: ObservedState, root: str, execute: Execute) -> No
     pid1 = _pid1_lines[0].lower() if command_ok(rc) and _pid1_lines else ""
     if pid1:
         evidence.append(f"PID 1: {pid1}")
-        signals[pid1] = signals.get(pid1, 0) + 2  # direct runtime evidence
+        pid1_identity = "s6" if pid1.startswith("s6-") else pid1
+        signals[pid1_identity] = signals.get(pid1_identity, 0) + 2  # direct runtime evidence
 
     rc, stdout, _ = run(execute, "systemctl --version")
     if command_ok(rc):
@@ -166,6 +167,7 @@ def _detect_init_system(state: ObservedState, root: str, execute: Execute) -> No
 
     # Alternatives are checked only to avoid falsely claiming systemd.
     for name, markers, command in (
+        ("s6", ("/etc/s6", "/run/service", "/usr/bin/s6-svscan"), "s6-svscan -V"),
         ("openrc", ("/etc/init.d", "/sbin/openrc"), "openrc --version"),
         ("runit", ("/etc/runit",), "runsvdir -V"),
         ("sysvinit", ("/etc/inittab",), "init --version"),
@@ -174,7 +176,20 @@ def _detect_init_system(state: ObservedState, root: str, execute: Execute) -> No
             evidence.append(f"{name} marker present")
             signals[name] = signals.get(name, 0) + 1
         rc, stdout, _ = run(execute, command)
-        if command_ok(rc) and name in pid1:
+        if name == "sysvinit":
+            # /etc/inittab can survive an init-system migration. Treat it as
+            # installed evidence only; identify SysV only when the init
+            # binary positively identifies itself or PID 1 is the generic
+            # `init` process and the marker is present.
+            version = stdout.lower()
+            identified = command_ok(rc) and "sysvinit" in version
+            if identified:
+                evidence.append("sysvinit init --version identifies SysV init")
+                signals[name] = signals.get(name, 0) + 2
+            elif pid1 == "init" and any(path_exists(root, marker) for marker in markers):
+                evidence.append("PID 1 is init and /etc/inittab is present")
+                signals[name] = signals.get(name, 0) + 2
+        elif command_ok(rc) and name in pid1:
             evidence.append(f"{name} CLI responds")
             signals[name] = signals.get(name, 0) + 1
 
@@ -190,15 +205,46 @@ def _detect_init_system(state: ObservedState, root: str, execute: Execute) -> No
         )
         return
 
-    winner = max(signals, key=lambda name: signals[name])
+    # A named PID 1 is direct runtime evidence and takes precedence over
+    # installed init binaries/configuration that may remain after migration.
+    # `init` is intentionally excluded: several SysV implementations use this
+    # generic name, so it needs corroboration from the SysV marker above.
+    pid1_winner = "s6" if pid1.startswith("s6-") else pid1
+    winner = pid1_winner if pid1_winner in signals and pid1_winner != "init" else max(
+        signals, key=lambda name: signals[name]
+    )
     state.init_system = winner
     strength = signals[winner]
     confidence = Confidence.HIGH if strength >= 2 else Confidence.MEDIUM
     # PID 1 matching proves it is running; files alone prove installation only.
-    status = Status.RUNNING if pid1 == winner else Status.INSTALLED
+    status = Status.RUNNING if (
+        ("s6" if pid1.startswith("s6-") else pid1) == winner
+        or (winner == "sysvinit" and pid1 == "init")
+    ) else Status.INSTALLED
     if winner == "systemd" and is_dir(root, "/run/systemd/system"):
         status = Status.RUNNING
     observe(state, "system.init", winner, confidence, status, evidence)
+
+
+def _detect_66_manager(state: ObservedState, root: str) -> None:
+    """Record 66 service-manager presence separately from PID 1/init identity.
+
+    Obarun's 66 manager and its s6 supervision layer are distinct concepts.
+    A marker-only discovery is never promoted to a running/functional claim.
+    """
+    markers = ("/usr/bin/66", "/usr/sbin/66", "/etc/66")
+    present = [marker for marker in markers if path_exists(root, marker)]
+    if present:
+        confidence = Confidence.HIGH if len(present) >= 2 else Confidence.MEDIUM
+        status = Status.INSTALLED
+        detected = "66"
+        evidence = ["66 manager markers: " + abbreviate(present)]
+    else:
+        confidence = Confidence.LOW
+        status = Status.ABSENT
+        detected = "unknown"
+        evidence = ["no 66 manager executable or configuration marker found"]
+    observe(state, "services.66", detected, confidence, status, evidence)
 
 
 def _detect_package_manager(state: ObservedState, root: str, execute: Execute) -> None:
@@ -281,5 +327,6 @@ def discover_system(
     _detect_distribution(observed, actual_root, ex_fn)
     _detect_architecture(observed, actual_root, ex_fn)
     _detect_init_system(observed, actual_root, ex_fn)
+    _detect_66_manager(observed, actual_root)
     _detect_package_manager(observed, actual_root, ex_fn)
     return observed

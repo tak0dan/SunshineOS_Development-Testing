@@ -110,6 +110,50 @@ while journal/checkpoints/ownership remain in `state_root`.
 **Remaining deployment work:** packaging the Rust bootstrap as the actual `sunshine-update` entry
 point and signing repository artifacts; no protocol or convergence gap remains.
 
+### G7 — CLOSED: production CLI cannot bypass Stage A
+
+The documented production trust requirement was not enforced when no trust arguments were given:
+real `--check`, `--plan`, `--apply`, `--verify`, and `--repair` could proceed directly to discovery
+or mutation. `src/engine.py` now rejects every non-fixture migration command without a successful
+Stage A index or verified bootstrap receipt. Offline fixtures remain available for tests. The
+read-only `--health` command is intentionally independent of Stage A and runs only pacman queries.
+
+### G8 — CLOSED: archive signatures and qualification evidence are checked
+
+`ContentAddressedArchive.verify(..., require_signature=True)` now requires a verifier and explicit
+trusted signer set, verifies a signature over canonical artifact metadata, and checks both digest
+and size. Archive writes are copied to a temporary object, fsynced, verified, and atomically
+published. Qualification-record digests now bind all source/target hashes, engine and catalog
+versions, VM profile, test layers, outcomes, and timestamp; the release gate rejects qualified
+records without a valid digest. Added regression coverage for tampering, signer rejection, corrupt
+archive replacement and compatibility metadata round trips. Release qualification can declare
+additional source milestones (for example E010, E020, E030, or a major boot transition) so the
+historical test matrix grows with the supported evolution horizon. Persistent migration journals
+now bind the full source/target/version/artifact/operation/checkpoint/validation record; valid v1
+partial digests are checked before records are upgraded to the v2 complete-record digest.
+
+### G9 — IN PROGRESS: package publication and ISO integration
+
+`sunshineos-repo` now has a local `sunshine-migration-engine` PKGBUILD and source staging hook. The
+package builds with dependency checks and verifies the staged source and wrapper checksums. It is
+not yet published, installed by `sunshine-base`, or integrated into the ISO; those steps remain
+blocked on migration-path qualification and the packaged Rust bootstrap handoff.
+
+### G10 — CLOSED: recovery data plans are path-safe
+
+Recovery bridge validation now requires a well-formed SHA-256 archive manifest identity. Data
+preservation plans reject relative paths, root-wide copies, parent traversal, duplicate entries,
+and exclusions that would hide an included path. Nested exclusions such as `/home/.cache` beneath
+an included `/home` remain supported. The plan remains declarative and does not perform copies.
+
+### G11 — CLOSED: snapshot retention is integrity-checked and path-confined
+
+Snapshot journals now use an atomic, fsynced v2 record with a complete content digest; v1 journals
+remain readable and are upgraded on write. Snapshot identifiers and paths are validated against the
+configured snapshot directory before restore or prune. Btrfs subvolumes use Btrfs deletion and tar
+archives use `unlink`. The prune-retention calculation no longer removes snapshots when the
+available count is already below the requested keep count.
+
 ## Implemented safeguards that answer earlier gaps
 
 - `src/fixtures.py` routes both discovery and execution through one injected executor. CLI
@@ -138,7 +182,8 @@ point and signing repository artifacts; no protocol or convergence gap remains.
 
 The loop is currently at: **implement → test → break → repair → document → restart with a harder
 scenario**. Cycles 12–34 are recorded in `../reports/evolution-engine-breakfix-cycle.md`.
-All six architecture gaps G1–G6 are closed, and cycles 29–34 closed the gap between offline proof
-and a real GUI-VM apply/verify/tamper run. The next hard scenario is packaging the Rust bootstrap as
-the real `sunshine-update` entrypoint, publishing the chained rotation document and repeating the
-full loop against that published package rather than the source tree.
+Architecture and security gaps G1–G8 and G10–G11 are closed at the prototype level, with remaining
+deployment and qualification work tracked in G9. Cycles 29–34 closed the gap between offline proof
+and a real GUI-VM apply/verify/tamper run. Next: package the Rust bootstrap as the `sunshine-update`
+entrypoint, publish the chained rotation document, connect the migration engine package to the
+qualified ISO package set, and rerun the end-to-end loop against those built artifacts.

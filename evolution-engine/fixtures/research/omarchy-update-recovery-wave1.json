@@ -1,0 +1,62 @@
+{
+  "catalog_id": "omarchy-update-recovery-wave1",
+  "schema": 1,
+  "project": "basecamp/omarchy",
+  "commit": "e4635a4eea887d5c8dbd70427386f570c37a2a61",
+  "sources": [
+    {
+      "source_id": "update-process",
+      "relative_path": "docs/update-process.md",
+      "sha256": "1f6d877212be4c4c23a7671bb4a33f4ba6b8a7b7f7c9af4025a09fee0c0fbeca",
+      "finding": "The documented update flow coordinates locking, pacman guarding, package updates, migration execution, and login notification behavior.",
+      "adoption": "Keep package transactions and migration completion as separately observed state; pending notifications must not run migrations silently.",
+      "limitation": "Documentation and scripts describe intent; no runtime transaction or rollback qualification is inferred.",
+      "status": "verified"
+    },
+    {
+      "source_id": "public-update",
+      "relative_path": "bin/omarchy-update",
+      "sha256": "d59539590ff3b20282c1fb6b05a8f506ec931d098a358282f1521a41131634b3",
+      "finding": "The public updater is the user-facing orchestration entry point for the update workflow.",
+      "adoption": "Use one explicit orchestration boundary with a journaled sequence and visible failure status.",
+      "limitation": "Presence of an updater does not prove that an individual package or migration completed.",
+      "status": "verified"
+    },
+    {
+      "source_id": "migration-runner",
+      "relative_path": "bin/omarchy-migrate",
+      "sha256": "0c14cb7853174d5289172496e22c1bd444b20c00c1aefd589e1faa3ae6941abe",
+      "finding": "Per-user migration execution is separate from the system package transaction and supports pending-state queries.",
+      "adoption": "Inventory migration state per user and reconcile it with observed system postconditions.",
+      "limitation": "Per-user marker state can diverge from root state after snapshot rollback.",
+      "status": "verified"
+    },
+    {
+      "source_id": "pacman-guard",
+      "relative_path": "bin/omarchy-update-pacman-guard",
+      "sha256": "aa56714de498170cf9460923dc1047dd89dcc3b08e21809ad2d764ebd1553fed",
+      "finding": "The ALPM guard restricts direct system-upgrade transactions unless they carry an explicit workflow allowance.",
+      "adoption": "Detect package-manager bypasses and require a full planned transaction before accepting package state.",
+      "limitation": "A guard can be bypassed explicitly and cannot replace package database discovery.",
+      "status": "verified"
+    },
+    {
+      "source_id": "updates-manual",
+      "relative_path": "manual/30-updates.md",
+      "sha256": "4c57a12f13d23407d1bae8225e8dc5fb0f0e82985373a4478cf23a17f06a3af8",
+      "finding": "The supported update flow includes snapshot, migrations, configuration updates, and package updates; direct pacman updates can skip those steps.",
+      "adoption": "Use transaction plans and preserve explicit configuration ownership and recovery evidence.",
+      "limitation": "Manual procedure does not demonstrate an actual machine update.",
+      "status": "verified"
+    },
+    {
+      "source_id": "snapshots-manual",
+      "relative_path": "manual/47-system-snapshots.md",
+      "sha256": "63e0a13be0f3d51e352eeeb15b88b0e13b5e06cc450743b988f4b822f68abf08",
+      "finding": "Snapshot restore reverts root but leaves /home, so home-resident migration records can claim work whose root effects were rolled back.",
+      "adoption": "On recovery, re-probe operation postconditions and refuse to trust a completion marker alone.",
+      "limitation": "Snapshot availability and coverage depend on the installation layout and boot setup.",
+      "status": "verified"
+    }
+  ]
+}

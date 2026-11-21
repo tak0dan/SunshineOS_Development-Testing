@@ -72,6 +72,17 @@ class SourceMatrixTests(unittest.TestCase):
                     report["source_compatibility"]["profile"], case["source_profile"]
                 )
                 self.assertTrue(report["source_compatibility"]["supported"])
+                if "expected_support_level" in case:
+                    self.assertEqual(
+                        report["source_compatibility"]["support_level"],
+                        case["expected_support_level"],
+                    )
+                if "expected_os_release" in case:
+                    os_release = report["observed"]["observations"].get("system.os-release", {})
+                    self.assertIn(
+                        case["expected_os_release"],
+                        " ".join(os_release.get("evidence", [])),
+                    )
 
                 observations = report["observed"]["observations"]
                 filesystems = observations["storage.filesystems"]
@@ -98,6 +109,15 @@ class SourceMatrixTests(unittest.TestCase):
                 )
                 foreign = report["observed"]["foreign_packages"]
                 self.assertEqual(sorted(foreign), sorted(case["foreign_packages"]))
+
+    def test_endeavouros_source_matrix_stays_conditional(self):
+        """T-ENDEAVOUR-MATRIX-001: fixture qualifies lineage, never official status."""
+        code, out, err = run_cli("--fixture", "endeavouros", "--check")
+        self.assertEqual(code, 0, err)
+        compatibility = as_json(out)["source_compatibility"]
+        self.assertTrue(compatibility["supported"])
+        self.assertEqual(compatibility["support_level"], "conditional")
+        self.assertTrue(any("conditional" in item for item in compatibility["warnings"]))
 
     def test_each_source_shape_has_expected_convergence_plan(self):
         for case in CASES:

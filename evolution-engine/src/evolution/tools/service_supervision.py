@@ -6,12 +6,17 @@ configuration. It does not execute anything itself and never invokes a shell.
 """
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
-UNIT_RE = re.compile(r"^[A-Za-z0-9@._-]+\.(service|socket|timer|target|path)$")
+from .systemd_inventory import (
+    UNIT_NAME as UNIT_RE,
+    UnitInventory,
+    assess_unit_inventory,
+)
+
 DESIRED = ("enabled", "disabled", "present", "absent")
+RUNTIMES = ("systemd", "66", "s6")
 RESTART = ("no", "on-success", "on-failure", "on-abnormal", "on-watchdog", "on-abort", "always")
 CLASSIFICATIONS = ("essential", "standard", "best-effort")
 
@@ -50,11 +55,16 @@ class ServiceSpec:
 
     def validate(self) -> list[str]:
         errors: list[str] = []
-        if not UNIT_RE.match(self.unit):
+        if self.runtime == "systemd" and not UNIT_RE.match(self.unit):
             errors.append(f"invalid systemd unit name {self.unit!r}")
+        elif self.runtime in ("66", "s6") and (
+            not self.unit or self.unit.startswith("/") or ".." in self.unit.split("/")
+            or any(ord(char) < 32 for char in self.unit)
+        ):
+            errors.append(f"invalid {self.runtime} service identifier {self.unit!r}")
         if self.desired not in DESIRED:
             errors.append(f"{self.unit}: invalid desired state {self.desired!r}")
-        if self.runtime != "systemd":
+        if self.runtime not in RUNTIMES:
             errors.append(f"{self.unit}: unsupported runtime {self.runtime!r}")
         if self.restart not in RESTART:
             errors.append(f"{self.unit}: invalid restart policy {self.restart!r}")
@@ -104,6 +114,32 @@ class SupervisionPlan:
 class ServiceSupervisor:
     """Validate specs and render deterministic supervision plans."""
 
+    def plan_checked(
+        self, specs: Iterable[ServiceSpec], inventory: UnitInventory
+    ) -> list[SupervisionPlan]:
+        """Plan only when the observed unit inventory permits the transition.
+
+        This is the enforcement entry point for migration/reparation callers.
+        The legacy ``plan`` method remains useful for rendering an unapproved
+        proposal, while this method refuses to produce executable argv when
+        observation is incomplete, a requested unit is masked or bad, or a unit
+        needs package installation/removal outside service supervision.
+        """
+        materialized = list(specs)
+        desired = {spec.unit: spec.desired for spec in materialized}
+        findings = assess_unit_inventory(inventory, desired)
+        blocked = [
+            finding for finding in findings
+            if finding.action in {"block", "review-install", "review-remove"}
+        ]
+        if blocked:
+            details = "; ".join(
+                f"{finding.unit}: {finding.observed} -> {finding.desired} ({finding.action})"
+                for finding in blocked
+            )
+            raise ValueError("systemd inventory does not authorize service plan: " + details)
+        return self.plan(materialized)
+
     def plan(self, specs: Iterable[ServiceSpec]) -> list[SupervisionPlan]:
         unique: dict[str, ServiceSpec] = {}
         for spec in specs:
@@ -117,24 +153,33 @@ class ServiceSupervisor:
         plans: list[SupervisionPlan] = []
         for unit in sorted(unique):
             spec = unique[unit]
-            if spec.desired in ("enabled", "present"):
+            if spec.runtime == "systemd" and spec.desired in ("enabled", "present"):
                 commands: tuple[tuple[str, ...], ...] = (
                     ("systemctl", "enable", unit),
                     ("systemctl", "start", unit),
                 )
-            else:
+            elif spec.runtime == "systemd":
                 commands = (
                     ("systemctl", "stop", unit),
                     ("systemctl", "disable", unit),
                 )
+            else:
+                # 66 bundle/tree semantics and s6 service-directory layouts are
+                # installation-specific. Marker discovery cannot safely supply
+                # either a bundle target or a supervised service path, so these
+                # plans deliberately carry no mutations until an inventory-backed
+                # adapter qualifies the exact object.
+                commands = ()
             plans.append(SupervisionPlan(
                 unit=unit,
                 desired=spec.desired,
                 commands=commands,
-                drop_in=self.render_drop_in(spec),
+                drop_in=self.render_drop_in(spec) if spec.runtime == "systemd" else "",
                 rationale=(
-                    f"{spec.classification} unit with restart={spec.restart} "
-                    f"and timeout={spec.timeout_start_sec}s"
+                    f"{spec.classification} {spec.runtime} service; "
+                    + (f"restart={spec.restart} and timeout={spec.timeout_start_sec}s"
+                       if spec.runtime == "systemd" else
+                       "manual qualification required: no inventory-backed adapter")
                 ),
             ))
         return plans
@@ -167,6 +212,8 @@ class ServiceSupervisor:
         for service in desired_services:
             if service not in planned:
                 errors.append(f"no supervision plan for desired service {service}")
+            elif not planned[service].commands:
+                errors.append(f"no qualified repair adapter for desired service {service}")
             elif planned[service].desired == "disabled":
                 errors.append(f"desired service {service} is planned as disabled")
         for service in essential_services:

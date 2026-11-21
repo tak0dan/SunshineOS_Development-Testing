@@ -545,7 +545,11 @@ class ArtifactRecoveryQualificationTests(unittest.TestCase):
             destination = archive.store(source, record)
             self.assertEqual(destination.name, digest)
             self.assertTrue(archive.verify(record)["passed"])
-            self.assertTrue(archive.verify(record, require_signature=True)["passed"])
+            self.assertTrue(archive.verify(
+                record, require_signature=True,
+                verifier=lambda _signer, _payload, _signature: True,
+                trusted_signers={SIGNER},
+            )["passed"])
             unsigned = record.__class__(**{**record.__dict__, "signature": ""})
             self.assertFalse(archive.verify(unsigned, require_signature=True)["passed"])
             destination.write_bytes(b"tampered")
@@ -605,10 +609,14 @@ class ArtifactRecoveryQualificationTests(unittest.TestCase):
             validation_result="passed", failure_recovery_result="passed",
             execution_result="passed",
         )
+        record = QualificationRecord.from_dict(record.to_dict())
         self.assertEqual(record.validate(), [])
         qualifications = []
         for source in ("B0", "E001", "E039", "external-arch"):
-            clone = QualificationRecord(**{**record.__dict__, "source_identity": source})
+            clone = QualificationRecord.from_dict({
+                **record.__dict__, "source_identity": source, "digest": "",
+            })
+            clone = QualificationRecord.from_dict(clone.to_dict())
             qualifications.append(clone)
         artifacts = {name: "present" for name in REQUIRED_RELEASE_ARTIFACTS}
         report = release_gate(artifacts, qualifications, load_scheme().versions)
@@ -796,6 +804,21 @@ class StabilityToolsTests(unittest.TestCase):
         self.assertTrue(supervisor.validate_coverage(["missing.service"], plans))
         with self.assertRaises(ValueError):
             supervisor.plan([ServiceSpec(unit="../../etc/passwd")])
+
+    def test_66_and_s6_repairs_fail_closed_without_inventory_adapters(self) -> None:
+        """T-REPAIR-66S6-001: do not invent bundle or service paths from markers."""
+        supervisor = ServiceSupervisor()
+        for runtime, service in (("66", "default/openssh"), ("s6", "openssh")):
+            with self.subTest(runtime=runtime):
+                plan = supervisor.plan([ServiceSpec(
+                    unit=service, runtime=runtime, desired="enabled",
+                )])[0]
+                self.assertEqual(plan.commands, ())
+                self.assertEqual(plan.drop_in, "")
+                self.assertIn("manual qualification required", plan.rationale)
+        for runtime in ("66", "s6"):
+            with self.assertRaises(ValueError):
+                supervisor.plan([ServiceSpec(unit="../unsafe", runtime=runtime)])
 
 
 if __name__ == "__main__":

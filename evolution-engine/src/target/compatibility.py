@@ -34,7 +34,7 @@ except ImportError:  # pragma: no cover - standalone scripts
     from core import ObservedState, Status
 
 
-ARCH_DISTRIBUTIONS = frozenset({"arch", "archlinux", "sunshine", "sunshineos"})
+ARCH_DISTRIBUTIONS = frozenset({"arch", "archlinux", "endeavouros", "garuda", "sunshine", "sunshineos"})
 SUPPORTED_ARCHITECTURES = frozenset({"x86_64", "aarch64"})
 SUPPORTED_FILESYSTEMS = frozenset({"btrfs", "ext4", "xfs", "f2fs", "vfat"})
 
@@ -75,6 +75,25 @@ def _status(state: ObservedState, key: str) -> Optional[Status]:
     return getattr(obs, "status", None) if obs is not None else None
 
 
+def _os_release_value(state: ObservedState, key: str) -> str:
+    """Read a field retained in os-release observation evidence.
+
+    The original os-release values are recorded as ``KEY=value`` evidence by
+    discovery. Requiring that provenance avoids trusting the marketing ID
+    alone when classifying derivative distributions.
+    """
+    observation = _observation(state, "system.os-release")
+    # Evidence from a failed/absent probe is diagnostic only.  It must not
+    # authorize a derivative source profile, even if a stale value is present.
+    if _status(state, "system.os-release") is not Status.CONFIGURED:
+        return ""
+    prefix = f"{key}="
+    for item in getattr(observation, "evidence", ()):
+        if isinstance(item, str) and item.startswith(prefix):
+            return item[len(prefix):].strip().strip("\"'").lower()
+    return ""
+
+
 def classify_source(state: ObservedState) -> CompatibilityReport:
     """Classify *state* into a source compatibility profile.
 
@@ -102,6 +121,19 @@ def classify_source(state: ObservedState) -> CompatibilityReport:
             f"unsupported distribution '{state.distribution}'; Sunshine "
             "transforms Arch-based systems only"
         )
+    elif distribution in {"endeavouros", "garuda"}:
+        id_like = _os_release_value(state, "ID_LIKE").split()
+        if "arch" not in id_like:
+            blockers.append(
+                f"{distribution} source lacks corroborating ID_LIKE=arch evidence; "
+                "distribution lineage is unknown"
+            )
+        else:
+            warnings.append(
+                f"{distribution} is an Arch derivative; source is conditional and "
+                "requires the observed pacman, systemd, boot, and package state"
+            )
+            evidence.append("os-release ID_LIKE includes arch")
     if architecture not in SUPPORTED_ARCHITECTURES:
         blockers.append(
             f"unsupported architecture '{state.architecture}'; supported: "
@@ -126,6 +158,11 @@ def classify_source(state: ObservedState) -> CompatibilityReport:
         )
     if "broken" in _detected(state, "pacman.query").lower():
         blockers.append("pacman reported a broken database")
+    if _status(state, "packages.ownership-inventory") is Status.ABSENT:
+        blockers.append(
+            "pacman package ownership inventory is incomplete; rerun discovery "
+            "successfully before transformation"
+        )
 
     # --- boot state ------------------------------------------------------ #
     bootloader = _detected(state, "bootloader").lower()

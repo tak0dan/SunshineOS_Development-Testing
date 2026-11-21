@@ -20,6 +20,8 @@ from .service_supervision import (
     ServiceSupervisor,
     SupervisionPlan as ServiceSupervisionPlan,
 )
+from .artix_services import ArtixServicePlan, plan_artix_service
+from .package_health import PackageHealthCheck, PackageHealthReport, assess_package_health
 
 __all__ = [
     "Seal",
@@ -39,5 +41,10 @@ __all__ = [
     "Differential",
     "ServiceSpec",
     "ServiceSupervisor",
+    "ArtixServicePlan",
+    "plan_artix_service",
     "ServiceSupervisionPlan",
+    "PackageHealthCheck",
+    "PackageHealthReport",
+    "assess_package_health",
 ]

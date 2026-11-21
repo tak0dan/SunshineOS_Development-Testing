@@ -3,6 +3,21 @@
 # points at the capability that regressed, not at an opaque fixture number.
 
 [[cases]]
+fixture = "endeavouros"
+axes = ["endeavouros-lineage", "btrfs", "grub"]
+source_profile = "arch-customized"
+expected_support_level = "conditional"
+expected_os_release = "ID_LIKE=arch"
+filesystem = "btrfs"
+luks = false
+btrfs = true
+bootloader = "grub"
+aur = false
+foreign_packages = []
+forbidden_install_packages = []
+expected_checkpoint_markers = []
+
+[[cases]]
 fixture = "clean-arch"
 axes = ["btrfs", "grub"]
 source_profile = "arch-standard"

@@ -22,7 +22,11 @@ from typing import Any, Callable, Iterable, Mapping
 
 from .milestones import HOOK_PHASES, HookSpec
 
-DEFAULT_ALLOWED = ("true", "echo", "sync", "cat", "test", "btrfs", "sunshine-evolve")
+# The built-in command hooks are deliberately limited to commands that cannot
+# read arbitrary files or change system state. Operations such as filesystem
+# repair, migration execution, and artifact inspection must go through a
+# signed adapter, or be explicitly enabled by the trusted caller.
+DEFAULT_ALLOWED = ("true", "echo", "sync")
 NETWORK_TOKENS = ("curl", "wget", "http://", "https://", "git clone", "ssh", "scp", "rsync://")
 
 AdapterInvoker = Callable[[str], tuple[bool, str]]

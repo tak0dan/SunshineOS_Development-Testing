@@ -12,7 +12,7 @@ from typing import Any, Mapping
 
 from .inventory import Inventory
 
-STRATEGIES = ("in_place", "staged_root", "bootstrap", "recovery_reconstruction")
+STRATEGIES = ("in_place", "staged_root", "ab_slot", "bootstrap", "recovery_reconstruction")
 
 PHASES: tuple[str, ...] = (
     "Discover", "Qualify", "Resolve", "Plan", "Review", "Protect",
@@ -29,6 +29,8 @@ class StagingCapability:
     separate_workspace: bool = False
     recovery_environment: bool = False
     encrypted: bool = False
+    inactive_slot_available: bool = False
+    slot_switch_supported: bool = False
 
     @classmethod
     def from_inventory(cls, inv: Inventory) -> "StagingCapability":
@@ -43,10 +45,17 @@ class StagingCapability:
             separate_workspace=bool(storage.get("separate_workspace", False)),
             recovery_environment=bool(boot.get("recovery_environment", False)),
             encrypted=bool(security.get("encrypted", False)),
+            inactive_slot_available=boot.get("inactive_slot_available") is True,
+            slot_switch_supported=boot.get("slot_switch_supported") is True,
         )
 
     def staged_root_possible(self) -> bool:
         return self.can_subvolume or self.separate_workspace
+
+    def ab_slot_possible(self) -> bool:
+        # A slot is usable only when both the destination and an explicit
+        # activation mechanism were observed. Never infer A/B from distro name.
+        return self.inactive_slot_available and self.slot_switch_supported
 
 
 @dataclass(frozen=True)
@@ -75,6 +84,12 @@ def assess_staging(
     """Choose an execution strategy from observed storage capability."""
     cap = StagingCapability.from_inventory(inv)
     reasons = [f"filesystem={cap.filesystem}", f"mode={mode}"]
+    if forced == "ab_slot" and not cap.ab_slot_possible():
+        raise ValueError("A/B slot staging requires an observed inactive slot and boot switch capability")
+    if forced == "staged_root" and not cap.staged_root_possible():
+        raise ValueError("staged-root strategy is not available on this inventory")
+    if forced == "recovery_reconstruction" and not cap.recovery_environment:
+        raise ValueError("recovery reconstruction requires an observed recovery environment")
     if forced:
         if forced not in STRATEGIES:
             raise ValueError(f"unknown migration strategy {forced!r}")
@@ -91,6 +106,9 @@ def assess_staging(
             "recovery_reconstruction", "workspace", tuple(reasons),
             cap.can_snapshot or cap.separate_workspace,
         )
+    if cap.ab_slot_possible():
+        reasons.append("inactive root slot and boot switch capability observed")
+        return StagingAssessment("ab_slot", "inactive-slot", tuple(reasons), True)
     if mode == "bootstrap" and cap.staged_root_possible():
         reasons.append("staged root available for bootstrap")
         return StagingAssessment("staged_root", "staged-root", tuple(reasons), True)

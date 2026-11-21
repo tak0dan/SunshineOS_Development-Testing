@@ -8,11 +8,16 @@ injectable executor; the journal is written only under ``state_root``.
 from __future__ import annotations
 
 import json
+import os
+import re
 import shutil
+import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
+
+from ..release import content_digest
 
 Executor = Callable[[Sequence[str]], tuple[int, str, str]]
 
@@ -79,6 +84,7 @@ class SnapshotManager:
     """Create, list, prune and restore recovery snapshots deterministically."""
 
     BACKENDS = ("btrfs", "tar")
+    NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 
     def __init__(
         self,
@@ -127,7 +133,7 @@ class SnapshotManager:
         metadata: Mapping[str, str] | None = None,
     ) -> SnapshotRecord:
         selected = self.choose_backend(backend)
-        if not name or name in {record.name for record in self.list()}:
+        if not self.NAME.fullmatch(name) or name in {record.name for record in self.list()}:
             raise ValueError(f"invalid or duplicate snapshot name {name!r}")
         destination = self.root / "snapshots" / f"{name}.{'btrfs' if selected == 'btrfs' else 'tar'}"
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -155,6 +161,8 @@ class SnapshotManager:
 
     def restore(self, name: str, target: str | Path) -> list[str]:
         record = self.get(name)
+        if not Path(record.path).exists():
+            raise FileNotFoundError(f"snapshot data is missing: {record.name}")
         argv = self.restore_commands(record, target)
         rc, _stdout, stderr = self._run(argv)
         if rc != 0:
@@ -165,7 +173,39 @@ class SnapshotManager:
         if not self.record_path.is_file():
             return []
         payload = json.loads(self.record_path.read_text(encoding="utf-8"))
-        return [SnapshotRecord.from_dict(item) for item in payload.get("snapshots", [])]
+        format_name = str(payload.get("format", "sunshine-snapshot-journal-1"))
+        if format_name not in ("sunshine-snapshot-journal-1", "sunshine-snapshot-journal-2"):
+            raise ValueError(f"unsupported snapshot journal format {format_name!r}")
+        if format_name == "sunshine-snapshot-journal-2":
+            digest = str(payload.get("digest", ""))
+            unsigned = {key: value for key, value in payload.items() if key != "digest"}
+            if not digest or digest != content_digest(unsigned):
+                raise ValueError("snapshot journal digest is missing or invalid")
+        raw_records = payload.get("snapshots", [])
+        if not isinstance(raw_records, list) or any(
+            not isinstance(item, Mapping) for item in raw_records
+        ):
+            raise ValueError("snapshot journal records are malformed")
+        records = [SnapshotRecord.from_dict(item) for item in raw_records]
+        seen: set[str] = set()
+        allowed_root = (self.root / "snapshots").resolve()
+        for record in records:
+            if not self.NAME.fullmatch(record.name) or record.name in seen:
+                raise ValueError("snapshot journal has an invalid or duplicate name")
+            seen.add(record.name)
+            if record.backend not in self.BACKENDS:
+                raise ValueError(f"snapshot {record.name}: unsupported backend {record.backend!r}")
+            suffix = "btrfs" if record.backend == "btrfs" else "tar"
+            candidate = Path(record.path)
+            if not candidate.is_absolute() or candidate.is_symlink():
+                raise ValueError(f"snapshot {record.name}: unsafe snapshot path")
+            try:
+                candidate.resolve(strict=False).relative_to(allowed_root)
+            except (OSError, ValueError):
+                raise ValueError(f"snapshot {record.name}: path escapes snapshot storage")
+            if candidate.name != f"{record.name}.{suffix}":
+                raise ValueError(f"snapshot {record.name}: path does not match its identity")
+        return records
 
     def get(self, name: str) -> SnapshotRecord:
         for record in self.list():
@@ -177,13 +217,19 @@ class SnapshotManager:
         if keep < 0:
             raise ValueError("keep must be non-negative")
         records = self.list()
-        removable = records[: len(records) - keep] if keep else records
+        removable = records[:max(0, len(records) - keep)]
         kept: list[SnapshotRecord] = []
         for record in records:
             if record in removable:
-                rc, _stdout, stderr = self._run(["rm", "-f", record.path])
-                if rc != 0:
-                    raise RuntimeError(f"snapshot prune failed: {stderr.strip() or rc}")
+                snapshot_path = Path(record.path)
+                if snapshot_path.exists():
+                    command = (
+                        ["btrfs", "subvolume", "delete", record.path]
+                        if record.backend == "btrfs" else ["unlink", record.path]
+                    )
+                    rc, _stdout, stderr = self._run(command)
+                    if rc != 0:
+                        raise RuntimeError(f"snapshot prune failed: {stderr.strip() or rc}")
             else:
                 kept.append(record)
         self._save(kept)
@@ -197,11 +243,24 @@ class SnapshotManager:
         )
 
     def _save(self, records: Iterable[SnapshotRecord]) -> None:
-        payload = json.dumps(
-            {"format": "sunshine-snapshot-journal-1",
-             "snapshots": [record.to_dict() for record in records]},
-            indent=2, sort_keys=True,
-        )
-        temp = self.record_path.with_suffix(".json.tmp")
-        temp.write_text(payload, encoding="utf-8")
-        temp.replace(self.record_path)
+        document = {
+            "format": "sunshine-snapshot-journal-2",
+            "snapshots": [record.to_dict() for record in records],
+        }
+        document["digest"] = content_digest(document)
+        payload = json.dumps(document, indent=2, sort_keys=True)
+        fd, temporary = tempfile.mkstemp(prefix="snapshots.", dir=self.root)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, self.record_path)
+            directory_fd = os.open(self.root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)

@@ -22,7 +22,7 @@ from typing import Callable
 ENGINE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ENGINE_ROOT / "src"))
 
-from core import Confidence, Status  # noqa: E402
+from core import Confidence, ObservedState, Status  # noqa: E402
 from discovery import (  # noqa: E402
     derive_capabilities,
     discover,
@@ -269,6 +269,17 @@ class DiscoveryTests(unittest.TestCase):
         self.assertIn("yay", state.foreign_packages)  # from -Qqm
         self.assertEqual(state.repositories, ["core", "extra", "multilib"])
 
+    def test_os_release_lineage_is_retained_as_evidence(self) -> None:
+        """T-ENDEAVOUR-DISC-001: preserve ID_LIKE for downstream source qualification."""
+        write_file(
+            self.root,
+            "/etc/os-release",
+            'NAME="EndeavourOS"\nID=endeavouros\nID_LIKE=arch\nPRETTY_NAME="EndeavourOS"\n',
+        )
+        state = discover(root=self.root, execute=self.execute)
+        self.assertEqual(state.distribution, "endeavouros")
+        self.assertIn("ID_LIKE=arch", state.observations["system.os-release"].evidence)
+
         self.assertEqual(state.observations["bootloader"].detected, "grub")
         self.assertIs(state.observations["bootloader"].confidence, Confidence.MEDIUM)
         self.assertIs(state.observations["bootloader"].status, Status.CONFIGURED)
@@ -277,23 +288,75 @@ class DiscoveryTests(unittest.TestCase):
         self.assertNotIn("sunshine.partial-installation", state.observations)
 
         required = {
-            "systemd",
-            "pacman",
-            "kernel-installation",
-            "boot-entry-management",
-            "desktop-session-discovery",
-            "pipewire",
-            "package-ownership-registry",
+            "systemd", "pacman", "kernel-installation", "boot-entry-management",
+            "desktop-session-discovery", "pipewire", "package-ownership-registry",
         }
         self.assertTrue(required <= state.capabilities)
         self.assertNotIn("configuration-ownership", state.capabilities)
-        self.assertEqual(
-            state.observations["packages.unknown"].detected,
-            "unknown-package-ownership",
-        )
-
+        self.assertEqual(state.observations["packages.unknown"].detected, "unknown-package-ownership")
         self.assert_low_confidence_is_harmless(state)
         self.assertIsInstance(state.to_dict()["capabilities"], list)
+
+    def test_incomplete_foreign_package_queries_withhold_official_claims(self) -> None:
+        """T-ENDEAVOUR-PKG-001: failed ownership probes cannot imply official packages."""
+        commands = dict(self.commands)
+        commands["pacman -Qqm"] = (1, "", "database unavailable")
+        state = discover_packages(ObservedState(), self.root, fake_executor(commands))
+        inventory = state.observations["packages.ownership-inventory"]
+        self.assertIs(inventory.status, Status.ABSENT)
+        self.assertIs(inventory.confidence, Confidence.LOW)
+        official = state.observations["packages.official"]
+        self.assertIs(official.confidence, Confidence.LOW)
+        self.assertIn("withheld", " ".join(official.evidence))
+        self.assertFalse(official.allow_destructive())
+
+
+    def test_arch_2015_sysvinit_pid1_is_identified_from_runtime_and_marker(self) -> None:
+        """T-ARCH2015-SYSV-001: identify a legacy SysV source without host access."""
+        import shutil
+
+        shutil.rmtree(os.path.join(self.root, "run/systemd"))
+        os.remove(os.path.join(self.root, "usr/lib/systemd/systemd"))
+        write_file(self.root, "/etc/inittab", "id:3:initdefault:\n")
+        write_file(self.root, "/proc/1/comm", "init\n")
+        self.commands["cat /proc/1/comm"] = (0, "init\n", "")
+        self.commands["systemctl --version"] = (127, "", "not present")
+        self.commands["init --version"] = (0, "init (sysvinit 2.88)\n", "")
+
+        state = discover_system(root=self.root, execute=self.execute)
+
+        self.assertEqual(state.init_system, "sysvinit")
+        self.assertIs(state.observations["system.init"].status, Status.RUNNING)
+        self.assertTrue(state.observations["system.init"].allow_destructive())
+
+    def test_stale_inittab_does_not_override_running_systemd(self) -> None:
+        """T-ARCH2015-SYSV-002: a remnant config is not runtime init evidence."""
+        write_file(self.root, "/etc/inittab", "id:3:initdefault:\n")
+        self.commands["init --version"] = (127, "", "not present")
+
+        state = discover_system(root=self.root, execute=self.execute)
+
+        self.assertEqual(state.init_system, "systemd")
+        self.assertIs(state.observations["system.init"].status, Status.RUNNING)
+
+    def test_obarun_66_s6_is_detected_without_confusing_manager_and_init(self) -> None:
+        """T-OBARUN-66-001: identify 66 and s6 from rooted, independent evidence."""
+        os.remove(os.path.join(self.root, "usr/lib/systemd/systemd"))
+        import shutil
+        shutil.rmtree(os.path.join(self.root, "run/systemd"))
+        write_file(self.root, "/proc/1/comm", "s6-svscan\n")
+        make_dir(self.root, "/usr/bin")
+        write_file(self.root, "/usr/bin/66", "placeholder")
+        make_dir(self.root, "/etc/66")
+        self.commands["cat /proc/1/comm"] = (0, "s6-svscan\n", "")
+        self.commands["systemctl --version"] = (127, "", "not present")
+        state = discover_system(root=self.root, execute=self.execute)
+        derive_capabilities(state, self.root)
+
+        self.assertEqual(state.init_system, "s6")
+        self.assertEqual(state.observations["services.66"].detected, "66")
+        self.assertIs(state.observations["services.66"].confidence, Confidence.HIGH)
+        self.assertIn("66-service-manager", state.capabilities)
 
     def test_users_are_discovered_without_secret_data(self) -> None:
         """Stage B preserves user/group facts but never records password hashes."""

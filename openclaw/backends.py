@@ -291,29 +291,18 @@ class OllamaBackend(AgentBackend):
         return redact_text(text)
 
     def run(self, task: Task) -> str:
-        tools = [{
-            "type": "function",
-            "function": {
-                "name": "run_command",
-                "description": "Run an allowlisted read-only inspection command in the repository.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {"command": {"type": "string"}},
-                    "required": ["command"],
-                },
-            },
-        }]
+        # gemma3:4b has no tool-call support; use fenced read-only commands instead.
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT +
-             " You may call run_command to inspect files, git state and VM state."},
+             " To inspect files, output one safe read-only command in a ```bash fenced "
+             "block; its output will be returned to you. Then give the final answer."},
             {"role": "user", "content": self.build_prompt(task)},
         ]
         final = ""
-        for _ in range(self.max_rounds):
+        for round_no in range(self.max_rounds):
             payload = json.dumps({
                 "model": getattr(task, "model", "") or self.model,
                 "messages": messages,
-                "tools": tools,
                 "stream": False,
                 "options": {"temperature": 0.2},
             }, ensure_ascii=True).encode("utf-8")
@@ -327,25 +316,16 @@ class OllamaBackend(AgentBackend):
             except Exception as exc:  # noqa: BLE001
                 raise RuntimeError(f"Ollama request failed: {self.redact(str(exc))}") from None
             message = data.get("message") or {}
-            content = message.get("content") or ""
-            if content:
-                final = str(content)
-            calls = message.get("tool_calls") or []
-            if not calls:
+            content = str(message.get("content") or "")
+            final = content
+            commands = re.findall(r"```(?:bash|sh|shell)\n(.*?)```", content, re.S)
+            if not commands or round_no == self.max_rounds - 1:
                 break
-            messages.append(message)
-            for call in calls:
-                fn = call.get("function") or {}
-                args = fn.get("arguments") or {}
-                if isinstance(args, str):
-                    try:
-                        args = json.loads(args)
-                    except ValueError:
-                        args = {"command": args}
-                output = self._run_command(str(args.get("command", "")), task)
-                messages.append({"role": "tool", "content": output})
+            outputs = [self._run_command(cmd, task) for cmd in commands[:3]]
+            messages.append({"role": "assistant", "content": content})
+            messages.append({"role": "user", "content": "COMMAND OUTPUT:\n" + "\n".join(outputs)})
             self.calls.append({"task_id": task.id, "model": self.model,
-                               "tool_calls": len(calls)})
+                               "commands": len(outputs)})
         if not final.strip():
             raise RuntimeError("Ollama returned an empty completion")
         return _clip(redact_text(final.strip()), 20000)
@@ -402,7 +382,7 @@ class CodexBackend(AgentBackend):
             out.unlink()
         prompt = self.build_prompt(task)
         cmd = [self.binary, "exec", "-C", str(root), "--sandbox", "workspace-write",
-               "--approve-for-me", "--color", "never", "-m", self.model,
+               "--color", "never", "-m", self.model,
                "--output-last-message", str(out), "-"]
         try:
             proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True,

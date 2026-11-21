@@ -30,6 +30,8 @@ HISTORICAL_SOURCES = (
     "external-arch", "external-derivative", "unknown-arch", "B-1",
 )
 
+DEFAULT_QUALIFICATION_SOURCES = ("B0", "E001", "E039", "external-arch")
+
 
 @dataclass(frozen=True)
 class SourceCapabilities:
@@ -93,13 +95,29 @@ class QualificationRecord:
     qualified_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
+    digest: str = ""
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "QualificationRecord":
+        fields = cls.__dataclass_fields__
+        values = {name: data[name] for name in fields if name in data}
+        if "layers" in values:
+            values["layers"] = tuple(str(item) for item in values["layers"])
+        return cls(**values)
 
     def validate(self) -> list[str]:
         errors: list[str] = []
         if not self.source_identity or not self.target_identity:
             errors.append("qualification record needs source and target identities")
-        if not self.source_inventory_hash or not self.target_manifest_hash:
-            errors.append("qualification record needs inventory and target hashes")
+        for name, value in (
+            ("source inventory", self.source_inventory_hash),
+            ("target manifest", self.target_manifest_hash),
+            ("artifact manifest", self.artifact_manifest_hash),
+        ):
+            if len(value) != 64 or any(char not in "0123456789abcdef" for char in value.lower()):
+                errors.append(f"qualification record needs a valid SHA-256 {name} hash")
+        if not self.engine_version or not self.transition_catalog_version:
+            errors.append("qualification record needs engine and transition catalog versions")
         for layer in self.layers:
             if layer not in TEST_LAYERS:
                 errors.append(f"unknown test layer {layer!r}")
@@ -113,9 +131,20 @@ class QualificationRecord:
                 )
             if not self.validation_result or self.failure_recovery_result != "passed":
                 errors.append("qualified tier requires passing validation and recovery results")
+        if self.digest and self.digest != content_digest(self.signable()):
+            errors.append("qualification record digest does not match its evidence")
         return errors
 
+    def computed_digest(self) -> str:
+        return content_digest(self.signable())
+
     def to_dict(self) -> dict[str, Any]:
+        result = self.signable()
+        result["digest"] = self.computed_digest()
+        return result
+
+    def signable(self) -> dict[str, Any]:
+        """Return every measured identity and result covered by the record digest."""
         return {
             "source_identity": self.source_identity,
             "source_inventory_hash": self.source_inventory_hash,
@@ -132,12 +161,6 @@ class QualificationRecord:
             "layers": list(self.layers),
             "support_tier": self.support_tier,
             "qualified_at": self.qualified_at,
-            "digest": content_digest({
-                "source": self.source_identity,
-                "target": self.target_identity,
-                "scenario": self.scenario,
-                "tier": self.support_tier,
-            }),
         }
 
 
@@ -163,6 +186,8 @@ def release_gate(
     artifacts: Mapping[str, Any],
     qualifications: Iterable[QualificationRecord],
     versions: VersionSet,
+    *,
+    required_sources: Iterable[str] = DEFAULT_QUALIFICATION_SOURCES,
 ) -> GateReport:
     """Fail closed unless migration evidence for a release is complete."""
     checks: list[dict[str, Any]] = []
@@ -179,10 +204,22 @@ def release_gate(
     })
 
     records = list(qualifications)
-    for source in ("B0", "E001", "E039", "external-arch"):
+    sources = tuple(str(source) for source in required_sources)
+    if not sources:
+        checks.append({
+            "name": "qualification:source-matrix", "passed": False,
+            "detail": "no required historical source states were declared",
+        })
+    if len(set(sources)) != len(sources):
+        checks.append({
+            "name": "qualification:source-matrix-unique", "passed": False,
+            "detail": "required historical source states contain duplicates",
+        })
+    for source in dict.fromkeys(sources):
         matching = [r for r in records if r.source_identity == source]
         qualifies = any(
             not r.validate() and r.support_tier == "qualified"
+            and r.digest and r.digest == r.computed_digest()
             for r in matching
         )
         checks.append({

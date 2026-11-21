@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
+import subprocess
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -285,6 +287,27 @@ def cmd_history(state_root: str) -> int:
     return 0
 
 
+def cmd_health(execute_argv=None) -> int:
+    """Run read-only package integrity checks; never auto-repair or remove packages."""
+    from src.evolution.tools.package_health import assess_package_health
+
+    def run(argv):
+        if execute_argv is not None:
+            return execute_argv(argv)
+        try:
+            result = subprocess.run(
+                list(argv), check=False, capture_output=True, text=True,
+                env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"}, timeout=120,
+            )
+            return result.returncode, result.stdout, result.stderr
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return (127 if isinstance(exc, OSError) else 124), "", str(exc)
+
+    report = assess_package_health(run)
+    print(_json(report.to_dict()))
+    return 0 if report.healthy else 1
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     ap = argparse.ArgumentParser(prog="sunshine-evolve", description="Sunshine Evolution Engine")
     ap.add_argument("--root", default=None, help="filesystem root for discovery (testing)")
@@ -298,6 +321,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     g.add_argument("--verify", action="store_true")
     g.add_argument("--repair", action="store_true")
     g.add_argument("--history", action="store_true")
+    g.add_argument("--health", action="store_true",
+                   help="read-only pacman database and installed-file health assessment")
     ap.add_argument("--resume", action="store_true", help="with --apply: resume from journal after re-discovery")
     ap.add_argument("--dry-run", action="store_true", help="with --apply: simulate without changes")
     ap.add_argument("--decide", action="append", default=[], metavar="ID=VALUE",
@@ -346,22 +371,32 @@ def main(argv: Optional[list[str]] = None) -> int:
             return 2
 
     try:
-        trust = _stage_a(a, execute)
+        trust = None if a.health else _stage_a(a, execute)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"Stage A configuration error: {exc}", file=sys.stderr)
+        return 3
+    if trust is None and not a.fixture and not a.health:
+        print(
+            "Stage A trust verification is mandatory outside offline fixture mode; "
+            "provide --trust-index or a verified --trust-report/--trust-receipt pair",
+            file=sys.stderr,
+        )
         return 3
     if trust is not None and not trust.passed:
         print("Stage A trust verification failed:\n" + _json(trust.to_dict()), file=sys.stderr)
         return 3
 
     try:
-        adapters = _adapter_registry(a, trust)
+        adapters = None if a.health else _adapter_registry(a, trust)
     except (OSError, ValueError) as exc:
         print(f"Adapter configuration error: {exc}", file=sys.stderr)
         return 3
 
     if a.history:
         return cmd_history(a.state_root)
+    if a.health:
+        health_executor = (lambda argv: execute(shlex.join(argv))) if execute else None
+        return cmd_health(health_executor)
     if a.check:
         return cmd_check(root, execute, trust)
     if a.plan:

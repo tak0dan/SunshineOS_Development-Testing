@@ -1,0 +1,25 @@
+name: Arch 2015 SysV regressions
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  sysvinit-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Run Arch 2015 SysV evidence and repair regressions
+        working-directory: evolution-engine
+        run: >-
+          python3 -m unittest -v
+          tests.test_arch2015_sysvinit
+          tests.test_sysvinit_inventory
+          tests.test_sysvinit_repair
+          tests.test_discovery
+          tests.test_compatibility
+      - name: Audit workflow trust policy
+        run: python3 autonomy/codex/ci_policy_audit.py .

@@ -112,16 +112,37 @@ def discover_packages(state: ObservedState, root: str = "/", execute: Execute | 
     foreign_names = set(parse_names(out_aur)) if command_ok(rc_aur) else set()
     _record_query_result(state, "pacman.query-foreign", "pacman -Qqm", rc_aur, out_aur, err_aur)
 
+    ownership_complete = all(command_ok(rc) for rc in (rc, rc_foreign, rc_aur))
+    observe(
+        state,
+        "packages.ownership-inventory",
+        "package-ownership-inventory",
+        Confidence.HIGH if ownership_complete else Confidence.LOW,
+        Status.FUNCTIONAL if ownership_complete else Status.ABSENT,
+        [
+            "all pacman ownership queries completed" if ownership_complete else
+            "incomplete pacman ownership queries; package ownership is unknown",
+            f"pacman -Q rc={rc}; pacman -Qqdt rc={rc_foreign}; pacman -Qqm rc={rc_aur}",
+        ],
+    )
+
     all_foreign = sorted(orphan_names | foreign_names)
     state.foreign_packages = all_foreign
 
     # --- official packages -------------------------------------------------
     sync_db = is_dir(root, "/var/lib/pacman/sync")
-    official = sorted(set(installed) - set(all_foreign))
-    official_confidence = Confidence.HIGH if inventory_available and sync_db else Confidence.MEDIUM
+    # A failed foreign/orphan query makes absence from those results
+    # inconclusive. Keep the candidate list for diagnostics, but do not label
+    # any package official until all ownership queries have succeeded.
+    official = sorted(set(installed) - set(all_foreign)) if ownership_complete else []
+    official_confidence = (
+        Confidence.HIGH if ownership_complete and inventory_available and sync_db
+        else Confidence.MEDIUM if ownership_complete else Confidence.LOW
+    )
     official_evidence = [
         "source: pacman -Q minus foreign/orphan queries",
         f"count: {len(official)}",
+        "ownership query set complete" if ownership_complete else "official membership withheld: ownership query set incomplete",
         "samples: " + abbreviate(official),
         "/var/lib/pacman/sync present" if sync_db else "sync databases not observed (membership unverified)",
     ]
