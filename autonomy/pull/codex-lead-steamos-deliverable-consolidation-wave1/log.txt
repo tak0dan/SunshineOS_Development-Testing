@@ -1,0 +1,5 @@
+Command (from `evolution-engine/`):
+
+`python3 -m unittest tests/test_steamos_workflow.py tests/test_steam_os_ab_activation.py tests/test_steam_os_ab_staging.py -v`
+
+Result: 17 tests passed. Transcript: `autonomy/codex/steamos-deliverable-consolidation-wave1-test.log`.
