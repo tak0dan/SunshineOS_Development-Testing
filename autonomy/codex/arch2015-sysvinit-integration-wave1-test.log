@@ -1,0 +1,3 @@
+Command: cd evolution-engine && python3 -m unittest tests.test_discovery tests.test_compatibility
+Result: 24 tests passed (2026-11-21).
+Coverage includes T-ARCH2015-SYSV-001, T-ARCH2015-SYSV-002, T-ARCH2015-SYSV-003.
