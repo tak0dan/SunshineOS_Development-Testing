@@ -1,0 +1,10 @@
+test_audit_001_suppressed_failure_without_validation_is_reported (autonomy.codex.test_cachyos_boot_hook_audit.CachyBootHookAuditTests.test_audit_001_suppressed_failure_without_validation_is_reported) ... ok
+test_audit_002_nearby_validation_closes_finding (autonomy.codex.test_cachyos_boot_hook_audit.CachyBootHookAuditTests.test_audit_002_nearby_validation_closes_finding) ... ok
+test_audit_003_checked_generation_is_not_reported (autonomy.codex.test_cachyos_boot_hook_audit.CachyBootHookAuditTests.test_audit_003_checked_generation_is_not_reported) ... ok
+test_audit_004_cachyos_uki_branch_has_artifact_validation (autonomy.codex.test_cachyos_boot_hook_audit.CachyBootHookAuditTests.test_audit_004_cachyos_uki_branch_has_artifact_validation)
+The cached CachyOS script has a later empty-UKI fatal check. ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.003s
+
+OK

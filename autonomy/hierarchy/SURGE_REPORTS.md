@@ -4603,3 +4603,43 @@ I extended the pinned source audit to distinguish Toolbox app self-updates from 
 - Test log: [garuda-wave1-migration-test.log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/garuda-wave1-migration-test.log)
 
 I couldn’t commit the deliverables: Git failed to create `.git/index.lock` because the index is read-only. The files remain in the workspace and are uncommitted.
+
+
+## codex-lead-0046 (2026-11-21 03:55)
+
+# Garuda repair tools — Wave 1
+
+Surveyed Garuda Toolbox at revision `430de5bc5356468318a5c677d8b2f6d2c4565a75`. The source-linked catalogue covers package cleanup, repository and keyring repair, Btrfs Assistant, health fixes, boot repair, lock removal, and the privileged shell boundary.
+
+Added a read-only pacman lock assessment: it detects known package-manager processes, fails closed when process state is unreadable, and labels ownerless locks as candidates only. It never removes the lock.
+
+- Survey and findings: [garuda-repair-wave1.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/garuda-repair-wave1.md)
+- Code: [pacman_lock_repair.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/pacman_lock_repair.py)
+- Regression tests: [test_pacman_lock_repair.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/test_pacman_lock_repair.py)
+- Evidence: [garuda-repair-wave1-test.log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/garuda-repair-wave1-test.log)
+
+All 15 focused tests passed; the catalog validator confirmed five findings. I could not commit the artifacts because `.git` is read-only and Git could not create `.git/index.lock`. The pre-existing working-tree changes remain untouched.
+
+
+## codex-lead-0047 (2026-11-21 03:59)
+
+# Garuda CI hardening — Wave 1
+
+Added a read-only Garuda workflow at [.github/workflows/garuda.yml](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/.github/workflows/garuda.yml). It validates the five-finding catalogue, runs portable package-lock and catalogue regressions on pushes and pull requests, and audits workflow policy. `CI_008` protects the workflow wiring.
+
+The source survey and exact Garuda Toolbox paths are catalogued in [garuda-ci-hardening-wave1.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/garuda-ci-hardening-wave1.md). The pinned upstream checkout is local, so hosted CI omits its checkout-dependent provenance test; that test passed in local verification.
+
+**Verification:** 23 tests passed (`CI_001`–`CI_008`, `GARUDA_CAT_001`–`011`, `GARUDA_REPAIR_001`–`004`). The workflow policy audit found no detected issues across four workflows. Logs are under `autonomy/codex/garuda-ci-*.log`.
+
+I could not commit these files: Git could not create `.git/index.lock` because `.git` is read-only. No reports or unrelated files were changed.
+
+
+## codex-lead-0048 (2026-11-21 04:02)
+
+## Garuda Wave 1 consolidation
+
+Added a consolidated deliverable index at [garuda-deliverable-consolidation-wave1.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/garuda-deliverable-consolidation-wave1.md). It maps the existing source catalogue, migration classification, repair guard, architecture audit, and CI evidence to exact repository paths and test IDs.
+
+Added regression coverage in [test_garuda_deliverable_consolidation.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/test_garuda_deliverable_consolidation.py), covering `GARUDA_CONSOL_001–003`. All three tests passed; output is captured in [garuda-deliverable-consolidation-wave1-test.log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/garuda-deliverable-consolidation-wave1-test.log).
+
+I could not commit the files: Git failed to create `.git/index.lock` because `.git` is read-only in this workspace. The three artifacts remain uncommitted.
