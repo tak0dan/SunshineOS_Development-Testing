@@ -1,0 +1,10 @@
+NAME="SunshineOS"
+PRETTY_NAME="SunshineOS Live Repair and Migration"
+ID=sunshine
+ID_LIKE="arch"
+ANSI_COLOR="38;2;255;215;0"
+BUILD_ID=rolling
+HOME_URL="https://github.com/tak0dan/SunshineOS_Development-Testing"
+DOCUMENTATION_URL="https://github.com/tak0dan/SunshineOS_Development-Testing/tree/development/iso"
+SUPPORT_URL="https://github.com/tak0dan/SunshineOS_Development-Testing/issues"
+BUG_REPORT_URL="https://github.com/tak0dan/SunshineOS_Development-Testing/issues"
