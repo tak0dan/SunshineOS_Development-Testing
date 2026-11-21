@@ -1,0 +1,6 @@
+[task.claimed] local-ollama-1-0011 pending attempt=0 local-ollama-1 / local source inspection / Arch 2015 sysvinit
+[attempt.started] local-ollama-1-0011 running attempt=1 local-ollama-1 / local source inspection / Arch 2015 sysvinit
+[task.succeeded] local-ollama-1-0011 done attempt=1 local-ollama-1 / local source inspection / Arch 2015 sysvinit
+    It appears the specified report file is not located within the expected directory.  Let's broaden the search.
+local-ollama-1-0011: done after 1 attempt(s)
+
