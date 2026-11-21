@@ -4449,3 +4449,91 @@ Changed the fixture and matrix in [fixtures.py](/home/tak_0/sunshineos-audit/Sun
 **Regression:** `python3 -m unittest tests.test_source_matrix tests.test_compatibility tests.test_discovery` — 35 tests passed. Relevant IDs: `T-ENDEAVOUR-MATRIX-001`, `T-ENDEAVOUR-COMP-001`–`004`, and `T-ENDEAVOUR-DISC-001`.
 
 **Commit:** Not created. `git add` could not create `.git/index.lock` because the Git index is read-only.
+
+
+## codex-lead-0037 (2026-11-21 03:21)
+
+## EndeavourOS Wave 1
+
+Added a fail-closed package ownership check. When any of `pacman -Q`, `pacman -Qqdt`, or `pacman -Qqm` fails, discovery withholds official-package claims and source compatibility blocks migration until discovery succeeds.
+
+The survey, exact-path catalogue, change summary, and qualification limits are in [the deliverable](</home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/endeavouros-wave1-package-ownership.md>). Test evidence is in [the log](</home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/endeavouros-wave1-package-ownership-test.log>).
+
+Regression tests `T-ENDEAVOUR-PKG-001` and `T-ENDEAVOUR-PKG-002` cover the new behavior. The focused suite passed 37 tests; the full migration engine suite passed 234. EndeavourOS support remains conditional; fixture tests do not establish real-host qualification.
+
+
+## codex-lead-0038 (2026-11-21 03:25)
+
+# EndeavourOS repair-tool survey — Wave 1
+
+I surveyed EndeavourOS repair-related tools and added a read-only SunshineOS assessment for pending pacman configuration files.
+
+## Survey
+
+The upstream [`eos-bash-shared` README](https://github.com/endeavouros-team/eos-bash-shared) lists:
+
+- `eos-pacdiff`, which wraps `pacdiff` to review configuration candidates. Its [source](https://github.com/endeavouros-team/eos-bash-shared/blob/main/eos-pacdiff#L629) includes a warning about sensitive account files; it also supports backups and invokes `pacdiff -s` ([source](https://github.com/endeavouros-team/eos-bash-shared/blob/main/eos-pacdiff#L699)).
+- `eos-update`, a pacman updater with optional yay support.
+- `paccache-service-manager`, which manages the package-cache service.
+
+The ISO’s compressed live root, `/arch/x86_64/airootfs.sfs`, was not extracted. The survey therefore does not establish which tools are present in that image or qualify repair on an installed EndeavourOS system.
+
+## Changes and regression evidence
+
+Added [config_drift.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/src/evolution/tools/config_drift.py), which inventories regular `.pacnew` and `.pacsave` files under `/etc`, flags sensitive configuration for manual review, and reports missing configuration roots as incomplete. It does not modify files or follow symlinks.
+
+Added [test_config_drift.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/tests/test_config_drift.py) with:
+
+- `T-EOS-REPAIR-001`: classifies candidates without modifying configuration.
+- `T-EOS-REPAIR-002`: treats an absent configuration root as incomplete.
+- `T-EOS-REPAIR-003`: does not follow symlinks.
+
+Command: `python3 -m unittest tests.test_config_drift tests.test_package_health` from `evolution-engine/`  
+Result: **6 tests passed**. Log: [endeavouros-wave1-repair-test.log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/endeavouros-wave1-repair-test.log).
+
+The full survey and change record is in [endeavouros-wave1-repair.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/endeavouros-wave1-repair.md).
+
+I could not commit: Git could not create `.git/index.lock` because the index is read-only. The four task files remain in the worktree.
+
+
+## codex-lead-0039 (2026-11-21 03:28)
+
+## EndeavourOS CI hardening — Wave 1
+
+Added a read-only GitHub Actions workflow at [.github/workflows/endeavouros.yml](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/.github/workflows/endeavouros.yml). It runs on pushes and pull requests, pins checkout to a full commit SHA, and runs the compatibility, discovery, and source-matrix suites.
+
+Added `CI_007` coverage in [test_ci_policy_audit.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/test_ci_policy_audit.py). The survey, exact path catalogue, test IDs, and evidence links are in [endeavouros-ci-hardening-wave1.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/endeavouros-ci-hardening-wave1.md).
+
+**Verification:** auditor tests passed (7); EndeavourOS suites passed (37); policy audit reported 3 workflows and no detected findings. Logs are in `autonomy/codex/endeavouros-ci-hardening-*.log`.
+
+I could not commit the changes: the workspace’s `.git/index` is read-only, so `git add` failed. No `reports/` files were modified.
+
+
+## codex-lead-0040 (2026-11-21 03:31)
+
+# EndeavourOS deliverable consolidation — Wave 1
+
+Created and committed the consolidation report at [`endeavouros-deliverable-consolidation-wave1.md`](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/endeavouros-deliverable-consolidation-wave1.md) and its regression log at [`endeavouros-deliverable-consolidation-wave1-test.log`](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/endeavouros-deliverable-consolidation-wave1-test.log).
+
+The report catalogs exact repository paths, test IDs, source survey evidence, and qualification limits. The focused regression run passed: **37 tests**, including EndeavourOS lineage, source-matrix convergence, and repeat-apply coverage.
+
+I could not commit the two files: Git reported that `.git/index.lock` could not be created because the filesystem is read-only. The working tree changes remain in place. The report also distinguishes this fixture coverage from real-machine migration qualification.
+
+
+## codex-lead-0041 (2026-11-21 03:35)
+
+## Garuda Wave 1
+
+Surveyed the local Garuda Toolbox checkout at revision `430de5bc5356468318a5c677d8b2f6d2c4565a75`. The survey catalogs five patterns with exact source paths and M-01–M-10 traceability, including maintenance UX, updates, snapshots and boot repair, package cleanup, repository/keyring repair, and the command boundary.
+
+Added a catalog validator and regression tests under `autonomy/codex/`:
+
+- [Survey and findings](autonomy/codex/garuda-wave1.md)
+- [Machine-readable catalog](autonomy/codex/garuda-wave1-catalog.json)
+- [Catalog validator](autonomy/codex/garuda_catalog.py)
+- [Regression tests](autonomy/codex/test_garuda_catalog.py)
+- [Test evidence](autonomy/codex/garuda-wave1-test.log)
+
+All five tests passed: `GARUDA_CAT_001` through `GARUDA_CAT_005`. The catalog validator also reported `validated 5 Garuda findings`.
+
+I could not commit the files: Git failed to create `.git/index.lock` because the index is on a read-only filesystem. The five deliverable files remain uncommitted.
