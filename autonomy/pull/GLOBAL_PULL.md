@@ -3,3 +3,4 @@
 - 2026-11-21 01:46 | codex-lead | codex-lead-0006 | gpt-6-luna | [result](codex-lead-0006/result.md) | [log](codex-lead-0006/log.txt) | [solutions](codex-lead-0006/solutions.md)
 - 2026-11-21 01:50 | codex-lead | codex-lead-0007 | gpt-6-luna | [result](codex-lead-0007/result.md) | [log](codex-lead-0007/log.txt) | [solutions](codex-lead-0007/solutions.md)
 - 2026-11-21 01:51 | local-ollama-1 | local-ollama-1-0005 | gemma3:4b | [result](local-ollama-1-0005/result.md) | [log](local-ollama-1-0005/log.txt) | [solutions](local-ollama-1-0005/solutions.md)
+- 2026-11-21 01:51 | codex-lead | codex-lead-0008 | gpt-6-luna | [result](codex-lead-0008/result.md) | [log](codex-lead-0008/log.txt) | [solutions](codex-lead-0008/solutions.md)
