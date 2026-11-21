@@ -1,0 +1,15 @@
+$ python3 -m unittest tests.test_compatibility tests.test_discovery
+...........................
+----------------------------------------------------------------------
+Ran 27 tests in 0.182s
+
+OK
+
+Source inspection:
+$ xorriso -indev /home/tak_0/.local/state/sunshine-orchestrator/iso/endeavouros.iso -pvd_info
+Volume Id: EOS_202608
+Publisher Id: ENDEAVOUROS <HTTPS://ENDEAVOUROS.COM>
+Preparer Id: PREPARED BY MKARCHISO
+App Id: ENDEAVOUROS LIVE/RESCUE CD
+Creation Time: 2026081514130800
+Media summary: 1 session, 1903632 data blocks, 3718m data
