@@ -1,0 +1,6 @@
+[task.claimed] codex-lead-omarchy-regression-0001 running
+[source] cached Omarchy checkout commit e4635a4eea887d5c8dbd70427386f570c37a2a61
+[implementation] added fixtures/research/omarchy-update-recovery-wave1.json and CAT_006
+[verification] python3 -m unittest tests.test_research_catalog -v — Ran 6 tests, OK
+[evidence] all six catalog source SHA-256 values matched the pinned cached checkout
+[task.succeeded] codex-lead-omarchy-regression-0001 done

@@ -1,0 +1,23 @@
+Garuda wave 1 regression deepening
+Date: 2026-11-21
+Workspace: SunshineOS_Development-Testing
+
+Command:
+  python3 -m unittest autonomy/codex/test_garuda_catalog.py
+Result:
+  Ran 11 tests in 0.034s
+  OK
+
+Command:
+  python3 autonomy/codex/garuda_catalog.py
+Result:
+  validated 5 Garuda findings
+
+Pinned source verification:
+  checkout: /home/tak_0/.local/state/sunshine-orchestrator/iso/repos/garuda-toolbox
+  expected revision: 430de5bc5356468318a5c677d8b2f6d2c4565a75
+  actual revision:   430de5bc5356468318a5c677d8b2f6d2c4565a75
+  cited catalog paths: all exist in checkout
+
+Regression IDs:
+  GARUDA_CAT_001 through GARUDA_CAT_011 (all passed)

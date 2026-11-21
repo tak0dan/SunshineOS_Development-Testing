@@ -1,0 +1,6 @@
+[task.claimed] codex-lead-0031 pending attempt=0 codex-lead / CI hardening / Arch 2026 systemd
+[attempt.started] codex-lead-0031 running attempt=1 codex-lead / CI hardening / Arch 2026 systemd
+[task.succeeded] codex-lead-0031 done attempt=1 codex-lead / CI hardening / Arch 2026 systemd
+    # Arch 2026 systemd CI hardening — Wave 1
+codex-lead-0031: done after 1 attempt(s)
+

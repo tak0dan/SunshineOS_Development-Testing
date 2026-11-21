@@ -1,0 +1,6 @@
+Implemented `WorkflowRun` phase-history and abort-state guards; added `STEAMOS_AB_006`; updated shared evolution regression to abort at the reached validation phase.
+
+Command (from evolution-engine/):
+python3 -m unittest discover -s tests -p 'test_steam_os_ab_staging.py' && python3 -m unittest discover -s tests -p 'test_evolution.py'
+
+Result: 6 tests OK; 30 tests OK. Full captured result is autonomy/codex/steamos-architecture-enforcement-wave1-test.log.

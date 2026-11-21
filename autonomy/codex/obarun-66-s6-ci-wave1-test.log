@@ -1,0 +1,8 @@
+test_ci_001_flags_mutable_actions_broad_write_and_fork_trigger (test_ci_policy_audit.CiPolicyAuditTests.test_ci_001_flags_mutable_actions_broad_write_and_fork_trigger) ... ok
+test_ci_002_accepts_sha_pinned_read_only_workflow (test_ci_policy_audit.CiPolicyAuditTests.test_ci_002_accepts_sha_pinned_read_only_workflow) ... ok
+test_ci_003_distinguishes_absent_workflow_tree (test_ci_policy_audit.CiPolicyAuditTests.test_ci_003_distinguishes_absent_workflow_tree) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.010s
+
+OK

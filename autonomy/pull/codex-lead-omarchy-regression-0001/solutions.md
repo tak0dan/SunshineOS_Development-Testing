@@ -1,0 +1,1 @@
+Catalogued source evidence in a versioned fixture instead of copying external scripts into the migration engine. Reused the existing `ResearchCatalog` schema and validation; added one test that binds the fixture to exact source identities and the pinned commit. Existing generic catalogue tests continue to cover hash match and mismatch behavior.

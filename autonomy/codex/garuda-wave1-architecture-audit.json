@@ -1,0 +1,48 @@
+{
+  "checkout": "/home/tak_0/.local/state/sunshine-orchestrator/iso/repos/garuda-toolbox",
+  "revision": "430de5bc5356468318a5c677d8b2f6d2c4565a75",
+  "findings": [
+    {
+      "id": "GARUDA-ARCH-001",
+      "source_path": "packages/renderer/src/app/components/maintenance/maintenance.component.ts",
+      "line": 272,
+      "description": "Updater fallback crosses updater/pacman paths",
+      "evidence": "garuda-update --skip-mirrorlist; \\           else pacman -Syu"
+    },
+    {
+      "id": "GARUDA-ARCH-002",
+      "source_path": "packages/renderer/src/app/components/maintenance/maintenance.component.ts",
+      "line": 299,
+      "description": "Orphan cleanup uses automatic confirmation and recursive removal",
+      "evidence": "pacman --noconfirm -Rns"
+    },
+    {
+      "id": "GARUDA-ARCH-003",
+      "source_path": "packages/renderer/src/app/components/maintenance/maintenance.component.ts",
+      "line": 174,
+      "description": "Renderer invokes a shell-command execution API for maintenance actions",
+      "evidence": "executeAndWaitBashTerminal("
+    },
+    {
+      "id": "GARUDA-ARCH-004",
+      "source_path": "packages/renderer/src/app/components/maintenance/maintenance.component.ts",
+      "line": 526,
+      "description": "Config reset interpolates paths into a shell command",
+      "evidence": "const cmd = `cp -r ${file}"
+    },
+    {
+      "id": "GARUDA-ARCH-005",
+      "source_path": "packages/renderer/src/app/components/boot-repair/boot-repair.service.ts",
+      "line": 469,
+      "description": "Boot repair constructs a raw-device write using dd",
+      "evidence": "dd if=\"${filename}"
+    },
+    {
+      "id": "GARUDA-ARCH-006",
+      "source_path": "packages/main/src/modules/ShellModule.ts",
+      "line": 16,
+      "description": "Shell IPC accepts command and argv from its caller",
+      "evidence": "ipcMain.handle('shell:spawnStreaming', (event, { processId, command, args, options }) => {       this.logger.trace(`Spawning shell process: ${command} ${JSON.stringify(args)}`);        try {         const mergedOptions = { ...options };         if (options?.env) {           mergedOptions.env = { ...process.env, ...options.env };         }          const handle = spawn(command, args"
+    }
+  ]
+}

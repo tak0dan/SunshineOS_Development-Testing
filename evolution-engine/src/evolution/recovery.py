@@ -9,6 +9,7 @@ database, legacy TLS, or the primary ledger being intact.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import PurePosixPath
 from typing import Any, Iterable, Mapping
 
 from .baseline import BASELINE_ID
@@ -113,8 +114,9 @@ class RecoveryBridge:
         errors: list[str] = []
         if not self.independent_toolchain:
             errors.append("recovery bridge must use a separately maintained toolchain")
-        if not self.artifact_manifest_hash:
-            errors.append("recovery bridge needs an archived artifact manifest")
+        digest = self.artifact_manifest_hash.lower()
+        if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+            errors.append("recovery bridge needs a valid SHA-256 artifact manifest hash")
         if not self.supported_conditions:
             errors.append("recovery bridge needs explicit supported conditions")
         if self.qualified and errors:
@@ -150,9 +152,26 @@ class DataPreservationPlan:
 
     def validate(self) -> list[str]:
         errors: list[str] = []
-        overlap = set(self.include) & set(self.exclude)
-        if overlap:
-            errors.append("paths both included and excluded: " + ", ".join(sorted(overlap)))
+        for label, values in (("included", self.include), ("excluded", self.exclude)):
+            if len(set(values)) != len(values):
+                errors.append(f"duplicate {label} data paths")
+            for value in values:
+                path = PurePosixPath(value)
+                if not path.is_absolute() or value == "/" or ".." in path.parts:
+                    errors.append(f"unsafe {label} data path {value!r}")
+        conflicts = [
+            (included, excluded)
+            for included in self.include for excluded in self.exclude
+            if PurePosixPath(included) == PurePosixPath(excluded)
+            or PurePosixPath(excluded) in PurePosixPath(included).parents
+        ]
+        if conflicts:
+            pairs = [f"{included} ↔ {excluded}" for included, excluded in conflicts]
+            errors.append("excluded path hides an included data path: " + ", ".join(pairs))
+        if self.report_path:
+            report = PurePosixPath(self.report_path)
+            if not report.is_absolute() or self.report_path == "/" or ".." in report.parts:
+                errors.append(f"unsafe preservation report path {self.report_path!r}")
         if not self.home_separate:
             errors.append("user home preservation must be independent of OS reconstruction")
         return errors

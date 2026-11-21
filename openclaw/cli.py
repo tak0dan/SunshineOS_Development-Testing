@@ -18,7 +18,7 @@ from .core import (
     Task,
     TaskStore,
 )
-from .backends import DEFAULT_FREE_MODELS, MODEL_ROLES, OpenRouterBackend
+from .backends import DEFAULT_FREE_MODELS, MODEL_ROLES, CodexBackend, OllamaBackend, OpenRouterBackend
 from .reporter import CompositeReporter, TelegramReporter
 
 DEFAULT_STORE = str(Path.cwd() / ".openclaw" / "tasks.json")
@@ -70,7 +70,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--all", action="store_true", help="drain all pending tasks")
     run.add_argument("--max-tasks", type=int, help="cap the number of tasks for --all")
     run.add_argument(
-        "--backend", choices=("shell", "stub", "openrouter"), default="shell"
+        "--backend", choices=("shell", "stub", "openrouter", "ollama", "codex"), default="shell"
     )
     run.add_argument("--timeout", type=float, default=300.0, help="per-command seconds")
     run.add_argument("--max-attempts", type=int, default=3)
@@ -101,6 +101,10 @@ def _make_backend(args: argparse.Namespace) -> AgentBackend:
         role_model = MODEL_ROLES.get(args.model_role, "") if args.model_role else ""
         model = args.model or role_model or None
         return OpenRouterBackend(model, timeout=args.timeout)
+    if args.backend == "ollama":
+        return OllamaBackend(args.model or None, timeout=args.timeout)
+    if args.backend == "codex":
+        return CodexBackend(args.model or "gpt-6-luna", timeout=args.timeout)
     return LocalShellBackend(timeout=args.timeout)
 
 

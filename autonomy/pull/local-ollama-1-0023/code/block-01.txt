@@ -1,0 +1,1 @@
+grep -r "endeavouros" /home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/logs/

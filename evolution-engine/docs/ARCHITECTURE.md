@@ -124,10 +124,11 @@ preserves user changes and asks only on conflict.
 
 ## Supported source profiles
 
-A five-year guarantee applies to **supported source profiles and supported Sunshine states**, not
-arbitrary Linux systems. Clean Arch with systemd/pacman/supported bootloader/filesystem is the
-primary conversion target. Customized Arch is conditional. Unsupported arrangements fail preflight
-with a precise explanation.
+The migration objective is a 20-year archive and qualification horizon across **supported source
+profiles and supported Sunshine states**, not arbitrary Linux systems. Clean Arch with
+systemd/pacman/supported bootloader/filesystem is the primary conversion target. Customized Arch
+is conditional. Unsupported arrangements fail preflight with a precise explanation; source age
+alone never implies support.
 
 ## Idempotency
 
@@ -140,6 +141,15 @@ two-apply fixture test with a persistent sandbox.
 A plan contains a fingerprint of the state it was built from. If discovery changes before
 execution, the engine aborts with `stale plan` and runs no command. This closes the gap between
 a reviewed plan and a mutated machine.
+
+## Long-term qualification evidence
+
+Each qualification record binds the source inventory, target manifest, artifact manifest, engine
+version, transition catalog version, VM profile, scenario, test layers, outcomes and qualification
+time into one deterministic digest. Qualified support records require VM migration, fault
+injection, recovery, successful validation and a passing recovery result. The release gate rejects
+records without full SHA-256 identities, so historical support claims remain auditable against the
+exact artifacts and engine that were tested.
 
 ## Host-independent fixtures
 

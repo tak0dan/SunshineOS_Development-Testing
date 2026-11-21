@@ -1,0 +1,20 @@
+$ cd evolution-engine && python3 -m unittest tests.test_artix_services -v
+test_ARTIX_SVC_001_openrc_enable_orders_runlevel_before_start (tests.test_artix_services.ArtixServicePlanTests.test_ARTIX_SVC_001_openrc_enable_orders_runlevel_before_start) ... ok
+test_ARTIX_SVC_002_runit_requires_observed_activation_path (tests.test_artix_services.ArtixServicePlanTests.test_ARTIX_SVC_002_runit_requires_observed_activation_path) ... ok
+test_ARTIX_SVC_003_unqualified_or_injected_paths_fail_closed (tests.test_artix_services.ArtixServicePlanTests.test_ARTIX_SVC_003_unqualified_or_injected_paths_fail_closed) ... ok
+test_ARTIX_SVC_004_package_owned_runit_definition_is_not_removed (tests.test_artix_services.ArtixServicePlanTests.test_ARTIX_SVC_004_package_owned_runit_definition_is_not_removed) ... ok
+test_ARTIX_SVC_005_openrc_disable_stops_before_runlevel_removal (tests.test_artix_services.ArtixServicePlanTests.test_ARTIX_SVC_005_openrc_disable_stops_before_runlevel_removal) ... ok
+test_ARTIX_SVC_006_runit_disable_targets_only_observed_active_service (tests.test_artix_services.ArtixServicePlanTests.test_ARTIX_SVC_006_runit_disable_targets_only_observed_active_service) ... ok
+test_ARTIX_SVC_007_commands_are_argv_and_unobserved_active_paths_reject (tests.test_artix_services.ArtixServicePlanTests.test_ARTIX_SVC_007_commands_are_argv_and_unobserved_active_paths_reject) ... ok
+test_ARTIX_SVC_008_runit_runtime_plan_marks_persistent_activation_unresolved (tests.test_artix_services.ArtixServicePlanTests.test_ARTIX_SVC_008_runit_runtime_plan_marks_persistent_activation_unresolved) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.001s
+
+OK
+$ cd evolution-engine && python3 -m unittest discover -s tests
+.............................................................................................................................................................................
+----------------------------------------------------------------------
+Ran 173 tests in 14.007s
+
+OK

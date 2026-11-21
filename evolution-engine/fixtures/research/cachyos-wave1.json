@@ -1,0 +1,89 @@
+{
+  "catalog_id": "cachyos-pkgbuilds-wave1",
+  "schema": 1,
+  "project": "CachyOS/CachyOS-PKGBUILDS",
+  "commit": "97a55536e5f756d22199f043de4aa1a0d8eebc8a",
+  "sources": [
+    {
+      "source_id": "kernel-manager-package",
+      "relative_path": "cachyos-kernel-manager/PKGBUILD",
+      "sha256": "8b050515a9b6f253cee4c8e35a4e7001f616c96e1179a29fc2c3b475fb89c265",
+      "finding": "Recipe pins a signed kernel-manager tag and applies a separately shipped local patch.",
+      "adoption": "Keep recipe provenance and packaged deltas distinct from observed installed kernel state.",
+      "limitation": "Recipe metadata does not prove which kernel is installed or that it boots.",
+      "status": "verified"
+    },
+    {
+      "source_id": "kernel-manager-patch",
+      "relative_path": "cachyos-kernel-manager/fix-installed-db.patch",
+      "sha256": "455c136513110b88e8234b8e4b25fd739804122ba6a492cde369b1f76c90960c",
+      "finding": "The package recipe applies this local compatibility patch.",
+      "adoption": "Record local package deltas as first-class evidence.",
+      "limitation": "Patch intent does not establish runtime effect on a target installation.",
+      "status": "verified"
+    },
+    {
+      "source_id": "update-helper-package",
+      "relative_path": "cachy-update/PKGBUILD",
+      "sha256": "5f4dc92adc64832da5d53beed14b3b1c2d3501bef39bae106305031eda56a452",
+      "finding": "Recipe pins the source commit and declares a make test check phase.",
+      "adoption": "Treat updater presence as a workflow/UI signal, not proof that updates were applied.",
+      "limitation": "The cached checkout lacks the payload source needed to verify helper behavior.",
+      "status": "verified"
+    },
+    {
+      "source_id": "hooks-package",
+      "relative_path": "cachyos-hooks/PKGBUILD",
+      "sha256": "a10556c5474407a74d2f188683d020b3e426f2293d14c63d6f25c41029d02522",
+      "finding": "Recipe pins a tagged source and declares hook/helper installation inputs.",
+      "adoption": "Preserve declared package-to-payload provenance; do not infer undeclared hook behavior.",
+      "limitation": "Named payload files are absent from this cached recipe checkout.",
+      "status": "verified"
+    },
+    {
+      "source_id": "sdboot-package",
+      "relative_path": "systemd-boot-manager/PKGBUILD",
+      "sha256": "37dca270d9e043c9733a3910eb9c32dc9c34bbd18e4aceb7fb72b69c09a5c5be",
+      "finding": "Recipe pins local source files with SHA-512 and installs ALPM hooks.",
+      "adoption": "Keep package recipe and installed hook mapping connected by provenance.",
+      "limitation": "Packaging declarations alone do not prove installed runtime behavior.",
+      "status": "verified"
+    },
+    {
+      "source_id": "kernel-update-hook",
+      "relative_path": "systemd-boot-manager/sdboot-kernel-update.hook",
+      "sha256": "50be0efa27de4569fbfc04905f7d95c0023f745fd91a1c4eab8d24d089afd005",
+      "finding": "Path trigger handles kernel image Install/Upgrade and runs autogen PostTransaction.",
+      "adoption": "Use artifact-scoped trigger as an integration pattern with staged artifact validation.",
+      "limitation": "Hook metadata does not prove command success or bootability.",
+      "status": "verified"
+    },
+    {
+      "source_id": "kernel-remove-hook",
+      "relative_path": "systemd-boot-manager/sdboot-kernel-remove.hook",
+      "sha256": "f927df477f54c01a38a3a31e180372b36b54acd12e2fae89b5ae589932db5438",
+      "finding": "Path trigger handles kernel-file Remove and runs remove PostTransaction.",
+      "adoption": "Model removal separately and preserve active/fallback kernel protections.",
+      "limitation": "Hook metadata does not establish active kernel identity or recoverability.",
+      "status": "verified"
+    },
+    {
+      "source_id": "systemd-update-hook",
+      "relative_path": "systemd-boot-manager/sdboot-systemd-update.hook",
+      "sha256": "9aa270d354bef0731a815f560256e174de19f1a79f8a5470d78e0377bd806bc5",
+      "finding": "Package trigger handles systemd Upgrade and runs autoupdate PostTransaction.",
+      "adoption": "Keep package update and kernel artifact transitions as separate events.",
+      "limitation": "A systemd package trigger does not establish active firmware boot state.",
+      "status": "verified"
+    },
+    {
+      "source_id": "sdboot-manager",
+      "relative_path": "systemd-boot-manager/sdboot-manage",
+      "sha256": "a1ade97af833e9667257cdb4787780d73ed4c6bf76d5cb5baebbffc3c7d36427",
+      "finding": "Script uses strict shell options, but selected generator errors are suppressed and later checks vary by branch.",
+      "adoption": "Require explicit per-artifact validation and preserve failures at a staged boundary.",
+      "limitation": "Static reading cannot establish runtime ordering, artifact completeness, or rollback.",
+      "status": "verified"
+    }
+  ]
+}

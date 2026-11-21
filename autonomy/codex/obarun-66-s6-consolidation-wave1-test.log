@@ -1,0 +1,49 @@
+test_clean_arch_system (tests.test_discovery.DiscoveryTests.test_clean_arch_system)
+A pristine Arch system is discovered without any Sunshine assumption. ... ok
+test_grub_package_alone_never_exceeds_medium (tests.test_discovery.DiscoveryTests.test_grub_package_alone_never_exceeds_medium)
+A GRUB package listing cannot claim an active firmware boot entry. ... ok
+test_individual_passes_accept_root_and_execute (tests.test_discovery.DiscoveryTests.test_individual_passes_accept_root_and_execute)
+Each pass can be called independently with the same test doubles. ... ok
+test_missing_user_database_is_low_confidence_not_a_crash (tests.test_discovery.DiscoveryTests.test_missing_user_database_is_low_confidence_not_a_crash) ... ok
+test_obarun_66_s6_is_detected_without_confusing_manager_and_init (tests.test_discovery.DiscoveryTests.test_obarun_66_s6_is_detected_without_confusing_manager_and_init)
+T-OBARUN-66-001: identify 66 and s6 from rooted, independent evidence. ... ok
+test_old_sunshine_partial_installation (tests.test_discovery.DiscoveryTests.test_old_sunshine_partial_installation)
+Partial Sunshine markers are detected, including HIGH boot confidence. ... ok
+test_users_are_discovered_without_secret_data (tests.test_discovery.DiscoveryTests.test_users_are_discovered_without_secret_data)
+Stage B preserves user/group facts but never records password hashes. ... ok
+test_artifact_archive_detects_tampering (tests.test_evolution.ArtifactRecoveryQualificationTests.test_artifact_archive_detects_tampering) ... ok
+test_baseline_fail_closed_and_epoch_replacement (tests.test_evolution.ArtifactRecoveryQualificationTests.test_baseline_fail_closed_and_epoch_replacement) ... ok
+test_qualification_gate_requires_evidence (tests.test_evolution.ArtifactRecoveryQualificationTests.test_qualification_gate_requires_evidence) ... ok
+test_recovery_lineage_and_bridge_validation (tests.test_evolution.ArtifactRecoveryQualificationTests.test_recovery_lineage_and_bridge_validation) ... ok
+test_staging_and_workflow_phases (tests.test_evolution.ArtifactRecoveryQualificationTests.test_staging_and_workflow_phases) ... ok
+test_static_qualification_fixtures_drive_the_release_gate (tests.test_evolution.ArtifactRecoveryQualificationTests.test_static_qualification_fixtures_drive_the_release_gate) ... ok
+test_hooks_are_ordered_journaled_and_fail_closed (tests.test_evolution.HookRepositoryUpdaterTests.test_hooks_are_ordered_journaled_and_fail_closed) ... ok
+test_repository_rejects_tampering (tests.test_evolution.HookRepositoryUpdaterTests.test_repository_rejects_tampering) ... ok
+test_updater_success_dry_run_and_rollback (tests.test_evolution.HookRepositoryUpdaterTests.test_updater_success_dry_run_and_rollback) ... ok
+test_compatibility_mode_and_tiers (tests.test_evolution.InventoryCompatibilityTests.test_compatibility_mode_and_tiers) ... ok
+test_from_observed_is_lossless_about_capabilities (tests.test_evolution.InventoryCompatibilityTests.test_from_observed_is_lossless_about_capabilities) ... ok
+test_inventory_schema_conversion_is_forward_only (tests.test_evolution.InventoryCompatibilityTests.test_inventory_schema_conversion_is_forward_only) ... ok
+test_transition_registry_preserves_retired_knowledge (tests.test_evolution.InventoryCompatibilityTests.test_transition_registry_preserves_retired_knowledge) ... ok
+test_event_catalog_from_ledger_is_stable (tests.test_evolution.ResolverAndLedgerTests.test_event_catalog_from_ledger_is_stable) ... ok
+test_ledger_rejects_gaps_and_contradictions (tests.test_evolution.ResolverAndLedgerTests.test_ledger_rejects_gaps_and_contradictions) ... ok
+test_release_identity_is_content_addressed (tests.test_evolution.ResolverAndLedgerTests.test_release_identity_is_content_addressed) ... ok
+test_resolved_target_rejects_contradictions (tests.test_evolution.ResolverAndLedgerTests.test_resolved_target_rejects_contradictions) ... ok
+test_target_resolution_is_deterministic_and_cumulative (tests.test_evolution.ResolverAndLedgerTests.test_target_resolution_is_deterministic_and_cumulative) ... ok
+test_66_and_s6_repairs_fail_closed_without_inventory_adapters (tests.test_evolution.StabilityToolsTests.test_66_and_s6_repairs_fail_closed_without_inventory_adapters)
+T-REPAIR-66S6-001: do not invent bundle or service paths from markers. ... ok
+test_channel_guard_fails_closed (tests.test_evolution.StabilityToolsTests.test_channel_guard_fails_closed) ... ok
+test_sealed_state_detects_additions_and_tampering (tests.test_evolution.StabilityToolsTests.test_sealed_state_detects_additions_and_tampering) ... ok
+test_service_supervision_plans_are_deterministic (tests.test_evolution.StabilityToolsTests.test_service_supervision_plans_are_deterministic) ... ok
+test_snapshot_manager_uses_argv_and_journals_records (tests.test_evolution.StabilityToolsTests.test_snapshot_manager_uses_argv_and_journals_records) ... ok
+test_transaction_log_commit_open_and_rollback (tests.test_evolution.StabilityToolsTests.test_transaction_log_commit_open_and_rollback) ... ok
+test_bad_registries_are_rejected (tests.test_evolution.VersionAndSchemeTests.test_bad_registries_are_rejected) ... ok
+test_bundled_scheme_and_scheme_cli (tests.test_evolution.VersionAndSchemeTests.test_bundled_scheme_and_scheme_cli) ... ok
+test_chain_resolution_and_fail_closed_errors (tests.test_evolution.VersionAndSchemeTests.test_chain_resolution_and_fail_closed_errors) ... ok
+test_invariants_fail_closed_on_missing_evidence (tests.test_evolution.VersionAndSchemeTests.test_invariants_fail_closed_on_missing_evidence) ... ok
+test_version_parsing_and_ordering (tests.test_evolution.VersionAndSchemeTests.test_version_parsing_and_ordering) ... ok
+test_version_set_validation (tests.test_evolution.VersionAndSchemeTests.test_version_set_validation) ... ok
+
+----------------------------------------------------------------------
+Ran 37 tests in 0.064s
+
+OK

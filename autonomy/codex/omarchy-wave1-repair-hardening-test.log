@@ -1,0 +1,5 @@
+Command (cwd: evolution-engine):
+python3 -m unittest tests.test_omarchy_marker_reconciliation tests.test_omarchy_recovery_consistency tests.test_research_catalog -v
+
+Result: Ran 15 tests in 0.003s — OK (exit 0).
+Covered IDs: OMR-001, OMR-002, OMR-004..010, CAT-001..006.

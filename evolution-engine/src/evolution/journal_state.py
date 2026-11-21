@@ -90,6 +90,11 @@ class MigrationJournal:
     history: list[dict[str, Any]] = field(default_factory=list)
     created_at: str = field(default_factory=utcnow)
     updated_at: str = field(default_factory=utcnow)
+    digest: str = ""
+    integrity_required: bool = field(default=False, repr=False, compare=False)
+
+    def _invalidate_digest(self) -> None:
+        self.digest = ""
 
     def transition(self, new_state: str, reason: str = "") -> None:
         if new_state not in STATES:
@@ -105,6 +110,7 @@ class MigrationJournal:
         })
         self.state = new_state
         self.updated_at = utcnow()
+        self._invalidate_digest()
         if new_state == "Committed":
             self.commit_state = "committed"
         elif new_state in ("Interrupted", "Failed", "RolledBack", "ResumeRecovery"):
@@ -118,6 +124,7 @@ class MigrationJournal:
                 f"operation {record.operation_id}: non-idempotent operations require recovery"
             )
         self.operations[record.operation_id] = record
+        self._invalidate_digest()
 
     def set_operation(self, operation_id: str, state: str, **fields: Any) -> None:
         if state not in OPERATION_STATES:
@@ -134,19 +141,46 @@ class MigrationJournal:
         if state == "Running":
             record.start_time = record.start_time or utcnow()
         self.updated_at = utcnow()
+        self._invalidate_digest()
 
     def add_checkpoint(self, ref: str, strategy: str = "checkpoint") -> None:
         self.checkpoints.append({
             "ref": ref, "strategy": strategy, "at": utcnow(),
         })
+        self.updated_at = utcnow()
+        self._invalidate_digest()
 
     def last_checkpoint(self) -> dict[str, Any] | None:
         return self.checkpoints[-1] if self.checkpoints else None
+
+    def verify_completed_outputs(self, observed_hashes: Mapping[str, str]) -> list[str]:
+        """Check journal completion claims against freshly observed component state.
+
+        A persisted completion marker can outlive the state it describes (for
+        example, when a root snapshot is restored but per-user markers are not).
+        Callers must supply hashes obtained from current system discovery; the
+        journal itself is never treated as proof that an operation still holds.
+        """
+        errors: list[str] = []
+        for operation_id, record in self.operations.items():
+            if record.state != "Completed":
+                continue
+            if not record.output_hash:
+                errors.append(f"operation {operation_id}: completed output has no recorded hash")
+                continue
+            observed = observed_hashes.get(operation_id)
+            if not observed:
+                errors.append(f"operation {operation_id}: completed output was not observed")
+            elif observed != record.output_hash:
+                errors.append(f"operation {operation_id}: observed output hash differs from completed record")
+        return errors
 
     def add_validation(self, name: str, passed: bool, detail: str = "") -> None:
         self.validation_results.append({
             "name": name, "passed": bool(passed), "detail": detail, "at": utcnow(),
         })
+        self.updated_at = utcnow()
+        self._invalidate_digest()
 
     def validate(self) -> list[str]:
         errors: list[str] = []
@@ -163,10 +197,30 @@ class MigrationJournal:
                 errors.append(f"operation {op_id}: terminal state without result")
         if self.state == "Committed" and self.commit_state != "committed":
             errors.append("committed journal has non-committed commit_state")
+        if self.integrity_required and not self.digest:
+            errors.append("journal digest is required for persisted migration records")
+        if self.digest and self.digest != content_digest(self.payload()):
+            errors.append("journal digest does not match its complete migration record")
         return errors
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "MigrationJournal":
+        format_name = str(data.get("format", "sunshine-migration-journal-1"))
+        stored_digest = str(data.get("digest", ""))
+        if format_name == "sunshine-migration-journal-1":
+            # Verify the legacy partial checksum before migrating its record to
+            # v2. The legacy checksum is not retained as proof of the v2 fields.
+            legacy_payload = {
+                "migration_id": str(data.get("migration_id", "")),
+                "state": str(data.get("state", "Discovery")),
+                "plan_hash": str(data.get("plan_hash", "")),
+                "operations": dict(data.get("operations") or {}),
+            }
+            if not stored_digest or stored_digest != content_digest(legacy_payload):
+                raise ValueError("legacy journal digest is missing or invalid")
+            stored_digest = ""
+        elif format_name != "sunshine-migration-journal-2":
+            raise ValueError(f"unsupported migration journal format {format_name!r}")
         journal = cls(
             migration_id=str(data.get("migration_id", "")),
             state=str(data.get("state", "Discovery")),
@@ -187,12 +241,15 @@ class MigrationJournal:
             history=[dict(h) for h in data.get("history", [])],
             created_at=str(data.get("created_at", utcnow())),
             updated_at=str(data.get("updated_at", utcnow())),
+            digest=stored_digest,
+            integrity_required=(format_name == "sunshine-migration-journal-2"),
         )
         return journal
 
-    def to_dict(self) -> dict[str, Any]:
+    def payload(self) -> dict[str, Any]:
+        """Canonical journal contents covered by the integrity digest."""
         return {
-            "format": "sunshine-migration-journal-1",
+            "format": "sunshine-migration-journal-2",
             "migration_id": self.migration_id,
             "state": self.state,
             "source_inventory_hash": self.source_inventory_hash,
@@ -210,20 +267,17 @@ class MigrationJournal:
             "history": self.history,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
-            "digest": content_digest({
-                "migration_id": self.migration_id,
-                "state": self.state,
-                "plan_hash": self.plan_hash,
-                "operations": {
-                    key: self.operations[key].to_dict() for key in sorted(self.operations)
-                },
-            }),
         }
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = self.payload()
+        return {**payload, "digest": content_digest(payload)}
 
     def save(self, path: str | Path) -> Path:
         target = Path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
-        payload = json.dumps(self.to_dict(), indent=2, sort_keys=True)
+        document = self.to_dict()
+        payload = json.dumps(document, indent=2, sort_keys=True)
         fd, temp = tempfile.mkstemp(prefix=target.name + ".", dir=str(target.parent))
         try:
             with __import__("os").fdopen(fd, "w", encoding="utf-8") as handle:
@@ -231,6 +285,8 @@ class MigrationJournal:
                 handle.flush()
                 __import__("os").fsync(handle.fileno())
             Path(temp).replace(target)
+            self.digest = str(document["digest"])
+            self.integrity_required = True
         finally:
             if Path(temp).exists():
                 Path(temp).unlink()

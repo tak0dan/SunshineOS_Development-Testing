@@ -1,0 +1,8 @@
+$ cd evolution-engine && python3 -m unittest tests.test_discovery
+.......
+----------------------------------------------------------------------
+Ran 7 tests in 0.091s
+
+OK
+
+Test ID T-OBARUN-66-001: PASS

@@ -38,6 +38,16 @@ receipt. Future or malformed `valid_after` dates are rejected before a new key j
 - Adapters launch only from a Stage A-validated registry, with a re-check of the artifact digest,
   no shell, no network, an empty capability set, explicit paths and enforced resource limits.
 
+### Milestone hooks
+
+The default command-hook allowlist is limited to `true`, `echo`, and `sync`. These commands do not
+provide a hook with arbitrary file reads or system mutation. File inspection, filesystem repair,
+and migration execution must use a signed adapter. A caller may extend the allowlist only from
+trusted local policy; doing so grants that command's full OS-level authority because hooks run as
+the updater, so the extension must be reviewed as privileged code. `HookRunner` still uses argv
+execution without a shell, a minimal environment, a fixed working directory, a timeout, and a
+journal, but those controls are not a substitute for the adapter sandbox.
+
 ## Threats and mitigations
 
 | Threat | Mitigation |
@@ -64,3 +74,18 @@ receipt. Future or malformed `valid_after` dates are rejected before a new key j
 - Invalid/unsigned metadata → abort before any transformation.
 - Ambiguous source profile → preflight failure with precise explanation.
 - Low-confidence destructive operation → refused.
+
+## Historical artifact archive
+
+Archive verification checks the content-addressed path, SHA-256, recorded byte size, and (when
+required) a detached signature over canonical artifact metadata. Callers requiring signatures must
+provide both a signature verifier and an explicit trusted-signer set; a non-empty signature field
+alone never qualifies an artifact. Stores publish a fully copied and fsynced temporary object with
+an atomic rename, then fsync the containing directory. A corrupt object at the expected digest path
+is replaced from the verified source instead of being accepted as present.
+The artifact-set manifest is canonicalized and verified against its own trusted signer set, so a
+valid per-file signature cannot be used to silently remove or substitute required artifacts.
+
+Snapshot journals are also integrity-checked and path-confined. Pruning only addresses validated
+objects beneath the configured snapshot directory, uses Btrfs subvolume deletion for Btrfs and
+`unlink` for tar archives, and atomically fsyncs the updated journal before returning.

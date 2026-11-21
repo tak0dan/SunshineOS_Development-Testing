@@ -1,0 +1,17 @@
+test_T_ARCH2026_SYSTEMD_001_parses_states_and_skips_header (tests.test_systemd_inventory.SystemdUnitInventoryTests.test_T_ARCH2026_SYSTEMD_001_parses_states_and_skips_header) ... ok
+test_T_ARCH2026_SYSTEMD_002_failed_probe_is_unknown (tests.test_systemd_inventory.SystemdUnitInventoryTests.test_T_ARCH2026_SYSTEMD_002_failed_probe_is_unknown) ... ok
+test_T_ARCH2026_SYSTEMD_003_masked_desired_service_blocks (tests.test_systemd_inventory.SystemdUnitInventoryTests.test_T_ARCH2026_SYSTEMD_003_masked_desired_service_blocks) ... ok
+test_T_ARCH2026_SYSTEMD_004_malformed_inventory_is_incomplete (tests.test_systemd_inventory.SystemdUnitInventoryTests.test_T_ARCH2026_SYSTEMD_004_malformed_inventory_is_incomplete) ... ok
+test_T_ARCH2026_SYSTEMD_005_invalid_desired_unit_rejected (tests.test_systemd_inventory.SystemdUnitInventoryTests.test_T_ARCH2026_SYSTEMD_005_invalid_desired_unit_rejected) ... ok
+test_T_ARCH2026_SYSTEMD_006_legacy_unit_types_remain_observable (tests.test_systemd_inventory.SystemdUnitInventoryTests.test_T_ARCH2026_SYSTEMD_006_legacy_unit_types_remain_observable) ... ok
+test_T_ARCH2026_SYSTEMD_007_duplicate_unit_makes_snapshot_incomplete (tests.test_systemd_inventory.SystemdUnitInventoryTests.test_T_ARCH2026_SYSTEMD_007_duplicate_unit_makes_snapshot_incomplete) ... ok
+test_T_ARCH2026_SYSTEMD_008_unknown_state_makes_snapshot_incomplete (tests.test_systemd_inventory.SystemdUnitInventoryTests.test_T_ARCH2026_SYSTEMD_008_unknown_state_makes_snapshot_incomplete) ... ok
+test_T_ARCH2026_SYSTEMD_009_enabled_alias_states_are_satisfied (tests.test_systemd_inventory.SystemdUnitInventoryTests.test_T_ARCH2026_SYSTEMD_009_enabled_alias_states_are_satisfied) ... ok
+test_T_ARCH2026_SYSTEMD_010_masked_runtime_blocks_present (tests.test_systemd_inventory.SystemdUnitInventoryTests.test_T_ARCH2026_SYSTEMD_010_masked_runtime_blocks_present) ... ok
+test_T_ARCH2026_SYSTEMD_011_absent_desired_state_is_idempotently_satisfied (tests.test_systemd_inventory.SystemdUnitInventoryTests.test_T_ARCH2026_SYSTEMD_011_absent_desired_state_is_idempotently_satisfied) ... ok
+test_T_ARCH2026_SYSTEMD_012_invalid_desired_state_rejected (tests.test_systemd_inventory.SystemdUnitInventoryTests.test_T_ARCH2026_SYSTEMD_012_invalid_desired_state_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.002s
+
+OK

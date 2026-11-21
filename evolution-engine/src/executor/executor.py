@@ -329,13 +329,25 @@ def execute_plan(plan: Plan, state_root: str | Path, execute: Optional[Execute] 
                                                state_root=context.root)
             for op_id in completed_ids:
                 check = actual.checks.get(op_id)
-                if check is not None and not check.matches:
+                # A journal marker can survive a root rollback (for example,
+                # when the marker lives under /home).  Resume may skip only
+                # when fresh discovery produced a high-confidence matching
+                # postcondition. Missing or inconclusive probes are not proof.
+                if check is None or check.confidence != "high" or not check.matches:
+                    reason = (
+                        "no fresh postcondition was available" if check is None else
+                        f"postcondition is {check.confidence}-confidence or mismatched"
+                    )
                     journal.append(JournalEntry(
                         id=f"{op_id}:reconcile", operation="Reconcile", status="running",
-                        output=f"journal claimed completion but actual state differs: "
-                               f"{check.kind}, expected_present={check.expected_present}, "
-                               f"present={check.present}; evidence={'; '.join(check.evidence)}",
-                    ), {"discrepancy": check.to_dict()})
+                        output=f"journal claimed completion but {reason}" + (
+                            f": {check.kind}, expected_present={check.expected_present}, "
+                            f"present={check.present}; evidence={'; '.join(check.evidence)}"
+                            if check is not None else ""
+                        ),
+                    ), {"discrepancy": check.to_dict() if check is not None else {
+                        "op_id": op_id, "confidence": "unknown", "matches": False,
+                    }})
                 else:
                     skip_ids.add(op_id)
         for e in previous.entries:

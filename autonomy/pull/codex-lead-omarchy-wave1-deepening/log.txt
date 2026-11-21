@@ -1,0 +1,4 @@
+Surveyed Omarchy pinned checkout e4635a4eea887d5c8dbd70427386f570c37a2a61.
+Verified six source file SHA-256 values against the checked-in research catalogue.
+Implemented marker reconciliation and ran 13 focused tests; all passed.
+Commit staging could not proceed: `.git/index.lock` creation failed because `.git` is read-only in this workspace.

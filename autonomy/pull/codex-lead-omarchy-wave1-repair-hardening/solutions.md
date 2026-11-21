@@ -1,0 +1,1 @@
+Updated `evolution-engine/src/evolution/markers.py::validate_user_completion_markers` to fail closed on malformed SHA-256 evidence. Added OMR-009 and OMR-010 in `evolution-engine/tests/test_omarchy_marker_reconciliation.py`. The check remains read-only.

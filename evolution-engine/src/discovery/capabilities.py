@@ -114,8 +114,19 @@ def derive_capabilities(state: ObservedState, root: str = "/", execute: Execute 
             (signal("services.enabled-units", (Status.ENABLED,)), "enabled unit list available"),
             (signal("services.running-units", (Status.RUNNING,)), "running unit list available"),
             (signal("services.systemd", _RUNNING_STATUSES), "systemd service manager responds"),
+            (
+                signal("services.66", (Status.INSTALLED,), minimum=Confidence.HIGH, detected="66"),
+                "66 service-manager executable and configuration markers found",
+            ),
         ],
         minimum=2,
+    )
+    grant(
+        "66-service-manager",
+        [
+            (signal("services.66", (Status.INSTALLED,), minimum=Confidence.HIGH, detected="66"),
+             "66 service-manager executable and configuration markers found")
+        ],
     )
     grant(
         "pacman",

@@ -1,0 +1,11 @@
+test_all_integrity_probes_and_settled_reboot_state_are_healthy (tests.test_windows_servicing.WindowsServicingTests.test_all_integrity_probes_and_settled_reboot_state_are_healthy) ... ok
+test_corruption_and_pending_reboot_never_report_healthy (tests.test_windows_servicing.WindowsServicingTests.test_corruption_and_pending_reboot_never_report_healthy) ... ok
+test_evidence_key_and_probe_identity_must_match (tests.test_windows_servicing.WindowsServicingTests.test_evidence_key_and_probe_identity_must_match) ... ok
+test_missing_probe_or_unknown_reboot_state_fails_closed (tests.test_windows_servicing.WindowsServicingTests.test_missing_probe_or_unknown_reboot_state_fails_closed) ... ok
+test_unexpected_command_is_blocked (tests.test_windows_servicing.WindowsServicingTests.test_unexpected_command_is_blocked) ... ok
+test_unrecognized_success_output_is_unknown (tests.test_windows_servicing.WindowsServicingTests.test_unrecognized_success_output_is_unknown) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.002s
+
+OK

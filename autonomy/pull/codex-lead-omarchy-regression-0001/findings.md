@@ -1,0 +1,4 @@
+- Omarchy documents per-user migration markers, direct pacman guard bypass, a shared updater lock, and root-only snapshot rollback.
+- Pinned six source files to cached checkout commit `e4635a4eea887d5c8dbd70427386f570c37a2a61`; every SHA-256 matched.
+- Added CAT_006 to prevent silent drift in the catalog's commit/path set.
+- Prior related runtime controls are catalogued as OMR-001 through OMR-003 in autonomy/codex/omarchy-wave1.md and omarchy-wave2.md.

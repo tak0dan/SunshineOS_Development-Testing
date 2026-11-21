@@ -1,0 +1,17 @@
+test_audit_001_suppressed_failure_without_validation_is_reported (autonomy.codex.test_cachyos_boot_hook_audit.CachyBootHookAuditTests.test_audit_001_suppressed_failure_without_validation_is_reported) ... ok
+test_audit_002_nearby_validation_closes_finding (autonomy.codex.test_cachyos_boot_hook_audit.CachyBootHookAuditTests.test_audit_002_nearby_validation_closes_finding) ... ok
+test_audit_003_checked_generation_is_not_reported (autonomy.codex.test_cachyos_boot_hook_audit.CachyBootHookAuditTests.test_audit_003_checked_generation_is_not_reported) ... ok
+test_audit_004_cachyos_uki_branch_has_artifact_validation (autonomy.codex.test_cachyos_boot_hook_audit.CachyBootHookAuditTests.test_audit_004_cachyos_uki_branch_has_artifact_validation)
+The cached CachyOS branch validates UKIs after its kernel loop. ... ok
+test_audit_005_cached_cachyos_validation_distance_is_included (autonomy.codex.test_cachyos_boot_hook_audit.CachyBootHookAuditTests.test_audit_005_cached_cachyos_validation_distance_is_included)
+Match sdboot-manage: line 259 generation, line 272 UKI gate. ... ok
+test_audit_006_validation_after_context_window_does_not_clear_finding (autonomy.codex.test_cachyos_boot_hook_audit.CachyBootHookAuditTests.test_audit_006_validation_after_context_window_does_not_clear_finding) ... ok
+test_HOOK_001_cachyos_kernel_hook_satisfies_contract (autonomy.codex.test_cachyos_alpm_hook.CachyOSAlpmHookTests.test_HOOK_001_cachyos_kernel_hook_satisfies_contract) ... ok
+test_HOOK_002_missing_target_fails_closed (autonomy.codex.test_cachyos_alpm_hook.CachyOSAlpmHookTests.test_HOOK_002_missing_target_fails_closed) ... ok
+test_HOOK_003_unknown_key_is_rejected (autonomy.codex.test_cachyos_alpm_hook.CachyOSAlpmHookTests.test_HOOK_003_unknown_key_is_rejected) ... ok
+test_HOOK_004_relative_exec_is_rejected (autonomy.codex.test_cachyos_alpm_hook.CachyOSAlpmHookTests.test_HOOK_004_relative_exec_is_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.001s
+
+OK

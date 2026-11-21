@@ -1,0 +1,24 @@
+# Findings
+
+*   **Description:**  `systemd-networkd` is activated during the first boot alongside `NetworkManager`, leading to duplicate DHCP configurations and conflicts.
+*   **File Paths:**
+*   `overlay/system/etc/systemd/system-preset/10-sunshine.preset`
+*   `profile/airootfs/` (copied by `make-iso.sh`)
+*   **Test IDs:**  (No specific test IDs provided in the document, but related to live boot and installed system behavior)
+*   **Evidence Paths:** `prs/tak0dan/SunshineOS/pull/1`
+*   **Resolution:**  Disables `systemd-networkd` and `wait-online` via a `10-sunshine.preset` file, ensuring it runs *after* `90-systemd.preset`.
+*   **Verified:**  `systemctl preset-all --preset-mode=enable-only` successfully disables both services.
+*   **Description:** The `sunshine-update` process, when used on the live system, removes kernel modules during updates, leading to dependency issues.
+*   **File Paths:**
+*   `/usr/lib/modules/$(uname -r)` (affected by the update)
+*   **Test IDs:** (No specific test IDs provided in the document, but related to live boot and update behavior)
+*   **Evidence Paths:** `prs/tak0dan/SunshineOS/pull/2`
+*   **Resolution:**  Implemented a `--ignore` flag to retain the kernel and headers packages during the update process.
+*   **Verified:**  `pacman -Sup` with the `--ignore` flag prevents the removal of the kernel packages.
+*   **Description:** The `96-sunshine-wallpapers` hook incorrectly points to a non-existent tool, causing the `theme-wallpapers` to fail to install.
+*   **File Paths:**
+*   `scripts/stage-src.sh`
+*   **Test IDs:** (No specific test IDs provided in the document, but related to the stage-src build process)
+*   **Evidence Paths:** `prs/tak0dan/sunshineos-repo/pull/1`
+*   **Resolution:**  Added `theme-wallpapers` to the list of tools staged by `stage-src.sh` and implemented a check to prevent `Exec` paths from pointing to non-existent tools.
+*   **Verified:**  The hook now correctly identifies and stages `theme-wallpapers`.

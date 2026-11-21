@@ -1,0 +1,2 @@
+python3 -m unittest tests/test_steamos_repair.py -v
+Ran 8 tests — OK

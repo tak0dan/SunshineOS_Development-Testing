@@ -1,0 +1,6 @@
+[task.claimed] local-ollama-1-0022 pending attempt=0 local-ollama-1 / offline verification / EndeavourOS
+[attempt.started] local-ollama-1-0022 running attempt=1 local-ollama-1 / offline verification / EndeavourOS
+[task.succeeded] local-ollama-1-0022 done attempt=1 local-ollama-1 / offline verification / EndeavourOS
+    Okay, the file `USER_MIGRATION_MANDATE_2026-11-21.md` does not exist at the specified path. This indicates a problem with the file location or the file itself.
+local-ollama-1-0022: done after 1 attempt(s)
+

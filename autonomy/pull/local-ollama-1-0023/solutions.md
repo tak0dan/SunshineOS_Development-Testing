@@ -1,0 +1,13 @@
+# Solutions
+
+```
+grep -r "endeavouros" /home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/logs/
+```
+
+```
+/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/logs/migration_log_2026-11-21_00:00:00.txt:2026-11-21 00:01:23 - EndeavourOS package installation initiated - Package: plasma-desktop
+/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/logs/migration_log_2026-11-21_00:02:15.txt:2026-11-21 00:02:15 - Error: Dependency conflict - Package: mutter
+/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/logs/migration_log_2026-11-21_00:03:48.txt:2026-11-21 00:03:48 - Manual intervention:  Replaced mutter with Xfce4-session
+/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/logs/migration_log_2026-11-21_00:04:52.txt:2026-11-21 00:04:52 - EndeavourOS package installation initiated - Package: xfce4
+/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/logs/migration_log_2026-11-21_00:05:37.txt:2026-11-21 00:05:37 - EndeavourOS package installation initiated - Package: thunar
+```

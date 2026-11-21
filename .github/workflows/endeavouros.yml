@@ -1,0 +1,23 @@
+name: EndeavourOS migration regressions
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  endeavouros-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Run EndeavourOS lineage, ownership and source-matrix regressions
+        working-directory: evolution-engine
+        run: >-
+          python3 -m unittest -v
+          tests.test_compatibility
+          tests.test_discovery
+          tests.test_source_matrix
+      - name: Audit workflow trust policy
+        run: python3 autonomy/codex/ci_policy_audit.py .

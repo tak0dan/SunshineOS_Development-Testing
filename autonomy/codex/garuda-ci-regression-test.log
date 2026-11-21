@@ -1,0 +1,32 @@
+test_ci_001_flags_mutable_actions_broad_write_and_fork_trigger (test_ci_policy_audit.CiPolicyAuditTests.test_ci_001_flags_mutable_actions_broad_write_and_fork_trigger) ... ok
+test_ci_002_accepts_sha_pinned_read_only_workflow (test_ci_policy_audit.CiPolicyAuditTests.test_ci_002_accepts_sha_pinned_read_only_workflow) ... ok
+test_ci_003_distinguishes_absent_workflow_tree (test_ci_policy_audit.CiPolicyAuditTests.test_ci_003_distinguishes_absent_workflow_tree) ... ok
+test_ci_004_absent_workflow_tree_fails_closed (test_ci_policy_audit.CiPolicyAuditTests.test_ci_004_absent_workflow_tree_fails_closed) ... ok
+test_ci_005_arch2015_sysv_workflow_is_present_and_policy_clean (test_ci_policy_audit.CiPolicyAuditTests.test_ci_005_arch2015_sysv_workflow_is_present_and_policy_clean)
+CI_005: the focused legacy-init suite is wired into read-only CI. ... ok
+test_ci_006_arch2026_systemd_workflow_is_present_and_policy_clean (test_ci_policy_audit.CiPolicyAuditTests.test_ci_006_arch2026_systemd_workflow_is_present_and_policy_clean)
+CI_006: systemd inventory, repair, discovery and compatibility run in CI. ... ok
+test_ci_007_endeavouros_regressions_are_wired_and_policy_clean (test_ci_policy_audit.CiPolicyAuditTests.test_ci_007_endeavouros_regressions_are_wired_and_policy_clean)
+CI_007: EndeavourOS lineage and package ownership checks run in read-only CI. ... ok
+test_ci_008_garuda_safety_regressions_are_portable_and_policy_clean (test_ci_policy_audit.CiPolicyAuditTests.test_ci_008_garuda_safety_regressions_are_portable_and_policy_clean)
+CI_008: Garuda-derived safety checks run without a local upstream checkout. ... ok
+test_GARUDA_CAT_001_source_revision_and_records_validate (test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_001_source_revision_and_records_validate) ... ok
+test_GARUDA_CAT_002_adoption_needs_plan_journal_and_verification (test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_002_adoption_needs_plan_journal_and_verification) ... ok
+test_GARUDA_CAT_003_duplicate_ids_fail_closed (test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_003_duplicate_ids_fail_closed) ... ok
+test_GARUDA_CAT_004_adopted_pattern_without_journal_is_rejected (test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_004_adopted_pattern_without_journal_is_rejected) ... ok
+test_GARUDA_CAT_005_invalid_invariant_reference_is_rejected (test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_005_invalid_invariant_reference_is_rejected) ... ok
+test_GARUDA_CAT_006_non_object_catalog_fails_closed (test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_006_non_object_catalog_fails_closed) ... ok
+test_GARUDA_CAT_007_revision_must_be_full_lowercase_hex (test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_007_revision_must_be_full_lowercase_hex) ... ok
+test_GARUDA_CAT_008_non_object_finding_fails_closed (test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_008_non_object_finding_fails_closed) ... ok
+test_GARUDA_CAT_009_source_path_traversal_is_rejected (test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_009_source_path_traversal_is_rejected) ... ok
+test_GARUDA_CAT_010_malformed_control_shape_fails_closed (test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_010_malformed_control_shape_fails_closed) ... ok
+test_GARUDA_CAT_011_pinned_checkout_contains_every_cited_source (test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_011_pinned_checkout_contains_every_cited_source) ... ok
+test_GARUDA_REPAIR_001_missing_lock_is_reported_without_mutation (test_pacman_lock_repair.PacmanLockRepairTests.test_GARUDA_REPAIR_001_missing_lock_is_reported_without_mutation) ... ok
+test_GARUDA_REPAIR_002_live_package_manager_blocks_repair (test_pacman_lock_repair.PacmanLockRepairTests.test_GARUDA_REPAIR_002_live_package_manager_blocks_repair) ... ok
+test_GARUDA_REPAIR_003_ownerless_lock_is_candidate_not_authorization (test_pacman_lock_repair.PacmanLockRepairTests.test_GARUDA_REPAIR_003_ownerless_lock_is_candidate_not_authorization) ... ok
+test_GARUDA_REPAIR_004_unavailable_process_table_fails_closed (test_pacman_lock_repair.PacmanLockRepairTests.test_GARUDA_REPAIR_004_unavailable_process_table_fails_closed) ... ok
+
+----------------------------------------------------------------------
+Ran 23 tests in 0.205s
+
+OK

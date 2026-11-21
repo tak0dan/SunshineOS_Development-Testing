@@ -1,0 +1,8 @@
+test_OMR_001_completed_operation_requires_matching_observed_output (tests.test_omarchy_recovery_consistency.OmarchyRecoveryConsistencyTests.test_OMR_001_completed_operation_requires_matching_observed_output) ... ok
+test_OMR_002_missing_observation_or_recorded_hash_fails_closed (tests.test_omarchy_recovery_consistency.OmarchyRecoveryConsistencyTests.test_OMR_002_missing_observation_or_recorded_hash_fails_closed) ... ok
+test_OMR_004_catalogued_omarchy_hazards_keep_enforcement_controls (tests.test_omarchy_recovery_consistency.OmarchyRecoveryConsistencyTests.test_OMR_004_catalogued_omarchy_hazards_keep_enforcement_controls) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.001s
+
+OK

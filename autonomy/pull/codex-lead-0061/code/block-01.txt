@@ -1,0 +1,5 @@
+python3 -m unittest tests/test_omarchy_marker_reconciliation.py tests/test_omarchy_recovery_consistency.py tests/test_research_catalog.py -v
+
+Ran 13 tests in 0.006s
+
+OK

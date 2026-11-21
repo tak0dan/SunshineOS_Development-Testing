@@ -12,7 +12,7 @@ from typing import Any, Mapping
 
 from .inventory import Inventory
 
-STRATEGIES = ("in_place", "staged_root", "bootstrap", "recovery_reconstruction")
+STRATEGIES = ("in_place", "staged_root", "ab_slot", "bootstrap", "recovery_reconstruction")
 
 PHASES: tuple[str, ...] = (
     "Discover", "Qualify", "Resolve", "Plan", "Review", "Protect",
@@ -29,6 +29,10 @@ class StagingCapability:
     separate_workspace: bool = False
     recovery_environment: bool = False
     encrypted: bool = False
+    inactive_slot_available: bool = False
+    slot_switch_supported: bool = False
+    active_slot: str | None = None
+    inactive_slot: str | None = None
 
     @classmethod
     def from_inventory(cls, inv: Inventory) -> "StagingCapability":
@@ -43,10 +47,30 @@ class StagingCapability:
             separate_workspace=bool(storage.get("separate_workspace", False)),
             recovery_environment=bool(boot.get("recovery_environment", False)),
             encrypted=bool(security.get("encrypted", False)),
+            inactive_slot_available=boot.get("inactive_slot_available") is True,
+            slot_switch_supported=boot.get("slot_switch_supported") is True,
+            active_slot=_slot_id(boot.get("active_slot")),
+            inactive_slot=_slot_id(boot.get("inactive_slot")),
         )
 
     def staged_root_possible(self) -> bool:
         return self.can_subvolume or self.separate_workspace
+
+    def ab_slot_possible(self) -> bool:
+        # A slot is usable only when both the destination and an explicit
+        # activation mechanism were observed. Never infer A/B from distro name.
+        return (
+            self.inactive_slot_available and self.slot_switch_supported
+            and self.active_slot is not None and self.inactive_slot is not None
+            and self.active_slot != self.inactive_slot
+        )
+
+
+def _slot_id(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip()
+    return normalized or None
 
 
 @dataclass(frozen=True)
@@ -55,6 +79,8 @@ class StagingAssessment:
     workspace: str
     reasons: tuple[str, ...]
     can_retain_previous: bool
+    active_slot: str | None = None
+    candidate_slot: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -62,6 +88,8 @@ class StagingAssessment:
             "workspace": self.workspace,
             "reasons": list(self.reasons),
             "can_retain_previous": self.can_retain_previous,
+            "active_slot": self.active_slot,
+            "candidate_slot": self.candidate_slot,
         }
 
 
@@ -75,10 +103,25 @@ def assess_staging(
     """Choose an execution strategy from observed storage capability."""
     cap = StagingCapability.from_inventory(inv)
     reasons = [f"filesystem={cap.filesystem}", f"mode={mode}"]
+    if forced == "ab_slot" and not cap.ab_slot_possible():
+        raise ValueError(
+            "A/B slot staging requires distinct observed active and inactive slot identifiers, "
+            "an available inactive slot, and boot switch capability"
+        )
+    if forced == "staged_root" and not cap.staged_root_possible():
+        raise ValueError("staged-root strategy is not available on this inventory")
+    if forced == "recovery_reconstruction" and not cap.recovery_environment:
+        raise ValueError("recovery reconstruction requires an observed recovery environment")
     if forced:
         if forced not in STRATEGIES:
             raise ValueError(f"unknown migration strategy {forced!r}")
         reasons.append(f"strategy forced to {forced}")
+        if forced == "ab_slot":
+            reasons.append(f"candidate slot={cap.inactive_slot}; retained active slot={cap.active_slot}")
+            return StagingAssessment(
+                forced, "inactive-slot", tuple(reasons), True,
+                active_slot=cap.active_slot, candidate_slot=cap.inactive_slot,
+            )
         return StagingAssessment(
             forced,
             "staged-root" if cap.staged_root_possible() else "workspace",
@@ -90,6 +133,13 @@ def assess_staging(
         return StagingAssessment(
             "recovery_reconstruction", "workspace", tuple(reasons),
             cap.can_snapshot or cap.separate_workspace,
+        )
+    if cap.ab_slot_possible():
+        reasons.append("inactive root slot and boot switch capability observed")
+        reasons.append(f"candidate slot={cap.inactive_slot}; retained active slot={cap.active_slot}")
+        return StagingAssessment(
+            "ab_slot", "inactive-slot", tuple(reasons), True,
+            active_slot=cap.active_slot, candidate_slot=cap.inactive_slot,
         )
     if mode == "bootstrap" and cap.staged_root_possible():
         reasons.append("staged root available for bootstrap")
@@ -108,6 +158,19 @@ class WorkflowRun:
     current: str | None = PHASES[0]
     aborted: bool = False
 
+    def __post_init__(self) -> None:
+        if self.strategy not in STRATEGIES:
+            raise ValueError(f"unknown migration strategy {self.strategy!r}")
+        if not isinstance(self.completed, list):
+            raise ValueError("workflow completed phases must be a list")
+        if self.completed != list(PHASES[:len(self.completed)]):
+            raise ValueError("workflow history must be a valid phase prefix")
+        expected = PHASES[len(self.completed)] if len(self.completed) < len(PHASES) else None
+        if self.current != expected:
+            raise ValueError(f"workflow current phase must be {expected!r}")
+        if self.aborted and expected is None:
+            raise ValueError("a completed workflow cannot be aborted")
+
     def advance(self, phase: str) -> None:
         if self.aborted:
             raise ValueError("cannot advance an aborted workflow")
@@ -122,6 +185,12 @@ class WorkflowRun:
         )
 
     def abort(self, at: str) -> None:
+        if self.aborted:
+            raise ValueError("workflow is already aborted")
+        if at != self.current:
+            raise ValueError(f"can only abort at current phase {self.current!r}")
+        if self.current is None:
+            raise ValueError("cannot abort a completed workflow")
         self.aborted = True
         self.current = at
 

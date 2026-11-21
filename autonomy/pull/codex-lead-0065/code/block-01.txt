@@ -1,0 +1,5 @@
+cd evolution-engine
+python3 -m unittest discover -s tests -p 'test_steam_os_ab_staging.py'
+Ran 4 tests ... OK
+python3 -m unittest discover -s tests -p 'test_evolution.py'
+Ran 30 tests ... OK

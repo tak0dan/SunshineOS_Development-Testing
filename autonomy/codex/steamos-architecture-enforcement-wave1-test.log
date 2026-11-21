@@ -1,0 +1,11 @@
+$ python3 -m unittest discover -s tests -p 'test_steam_os_ab_staging.py' && python3 -m unittest discover -s tests -p 'test_evolution.py'
+......
+----------------------------------------------------------------------
+Ran 6 tests in 0.004s
+
+OK
+..............................
+----------------------------------------------------------------------
+Ran 30 tests in 0.070s
+
+OK
