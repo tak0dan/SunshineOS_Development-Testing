@@ -1,0 +1,5 @@
+Command (cwd: evolution-engine):
+python3 -m unittest tests.test_omarchy_update_completion tests.test_omarchy_marker_reconciliation tests.test_omarchy_recovery_consistency tests.test_research_catalog -v
+
+Result: Ran 19 tests in 0.017s — OK.
+Evidence: autonomy/codex/omarchy-deliverable-consolidation-wave1-test.log

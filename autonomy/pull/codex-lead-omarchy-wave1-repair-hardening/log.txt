@@ -1,0 +1,1 @@
+Surveyed the exact paths listed in the pinned Omarchy research catalogue and verified the related local control/tests. Implemented SHA-256 syntax validation. Ran focused Omarchy marker, recovery, and catalogue tests: 15 passed.

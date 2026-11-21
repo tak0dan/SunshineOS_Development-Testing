@@ -1,0 +1,3 @@
+- Pinned Omarchy catalogue: `evolution-engine/fixtures/research/omarchy-update-recovery-wave1.json`, source commit `e4635a4eea887d5c8dbd70427386f570c37a2a61`; six source paths and hashes validated by CAT_006.
+- The user marker reconciliation routine accepted malformed equal strings as hash evidence. This could incorrectly treat invalid persisted values as proof of completed repair/migration state.
+- Changed the validation boundary to require canonical lowercase SHA-256 strings for marker, completed journal output, and fresh observed output.

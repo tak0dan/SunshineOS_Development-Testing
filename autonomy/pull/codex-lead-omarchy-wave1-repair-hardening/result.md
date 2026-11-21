@@ -1,0 +1,1 @@
+Omarchy wave 1 repair hardening complete. Source: `evolution-engine/src/evolution/markers.py`; tests OMR-009/010 in `evolution-engine/tests/test_omarchy_marker_reconciliation.py`. Survey and evidence: `autonomy/codex/omarchy-wave1-repair-hardening.md` and `autonomy/codex/omarchy-wave1-repair-hardening-test.log`. Focused command passed all 15 tests.

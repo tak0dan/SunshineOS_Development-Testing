@@ -1,0 +1,2 @@
+2026-11-21: Inspected migration mandate, architecture decisions, prior Omarchy evidence, and pinned cached CI source.
+2026-11-21: Added mutable docker image policy and Omarchy regression coverage; focused CI policy test command passed (5 tests).
