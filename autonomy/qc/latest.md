@@ -1,109 +1,80 @@
-# Wave 1 — Obarun/66+s6 Hook Code Path Catalogue
+# Wave 1: Survey & Catalogue – Exact File Paths
 
-**Repository:** `/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing`  
-**Mandate:** `reports/USER_MIGRATION_MANDATE_2026-11-21.md`  
-**Subject:** Hook code paths in Obarun/66+s6  
-**Wave:** 1 of deepening  
-**Deliverable type:** Annotated file-by-file map with exact identifiers, test IDs, and evidence paths.
+**Repository root:** `/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing`
 
----
+**Top-level entries verified** (per repo structure in prompt):
+- `.git/`, `.gitignore`, `.openclaw/`, `FINDINGS.md`, `README.md`, `TODO/`, `autonomy/`, `evidence/`, `evolution-engine/`, `logs/`, `openclaw/`, `other/`, `prs/`, `reports/`
 
-## 1. Survey Scope
+**Confirmed file present in prompt:**
+- `reports/USER_MIGRATION_MANDATE_2026-11-21.md` – full content included in this request.
 
-This wave catalogues every hook code path associated with Obarun's integration of the **66** service manager and **s6** supervision suite. The purpose is to identify:
+**Referenced but not provided in prompt:**
+- `autonomy/results` – path exists within `autonomy/` top-level entry; content not included.
+- `autonomy/qc/latest.md` – path exists within `autonomy/qc/`; content not included.
 
-- Where hooks are defined (init, service, logging, dependency, recovery).
-- How hooks are triggered (boot, start, stop, restart, failure, reload).
-- Which files SunshineOS should adopt, adapt, or replace.
-- Where test coverage and evidence artifacts live in this repository.
+> **Note:** Missing files will be noted in the defect tracker. Do not fabricate content for `autonomy/results` or `autonomy/qc/latest.md`.
 
 ---
 
-## 2. Repository Locations Surveyed
+# Claim Verification vs Invariants M-01..M-10
 
-| Location | Purpose | Status |
-|----------|---------|--------|
-| `autonomy/results/` | Agent research output and hook extraction | Surveyed |
-| `evidence/` | Downloaded Obarun/66/s6 artifacts, ISOs, package dumps | Surveyed |
-| `openclaw/` | OpenClaw research traces and byte-level measurements | Surveyed |
-| `other/` | Miscellaneous extracted hooks and configuration snippets | Surveyed |
-| `reports/` | Mandate and architecture decisions (reference only) | Referenced |
+| Invariant | Mandate Claim | Contradiction Flag | Rationale |
+|-----------|-------------|-------------------|-----------|
+| **M-01** – Target-state driven | “Until the migration is top level enterprisis grade model - work can not stop.” | ⚠️ **Potential conflict** if “work cannot stop” forces blind sequential upgrades without a resolved target. | The mandate’s 76-hour program is a *program-level* constraint, not an engine design. Ensure the migration engine enforces target-state driving (M-01) regardless of program duration. |
+| **M-02** – Evolution history immutable | “Published evolution definitions cannot be silently modified.” (implied by ledger design) | ✅ **Aligned** | Mandate explicitly designs around immutable, signed evolutionary ledger. |
+| **M-03** – Migration intelligence versioned independently | Version model section with `ME12`, `E040`, etc. | ✅ **Aligned** | Mandate separates OS evolution, migration engine, inventory, transition catalog versions. |
+| **M-04** – Actual installation authoritative | “A release number alone never determines the migration plan.” | ✅ **Aligned** | Mandate’s whole architecture rejects release-number-driven migration. |
+| **M-05** – Migrations staged whenever technically possible | No explicit staging language; “work can not stop” for 76h. | ⚠️ **Risk** | Program mandate mentions non-stop work; engine design must *independently* support staging per M-05 even when programs demand continuity. |
+| **M-06** – Operations recoverable with compensation | “Build reparation mechanism… completely repair the systems services, packages, daemons, instabilities, fstab, initramfs… WAY superior to…” | 🚨 **Contradiction** | Phrase “completely repair… WAY superior” risks implying non-recoverable, blind mutations. **M-06 requires explicit recovery/journaling protocols.** |
+| **M-07** – Historical artifacts archived | “DEEPLY research those distros, copy their strongest tools…” | ✅ **Aligned** if artifacts are archived; no explicit archival mandate. |
+| **M-08** – Migration support qualified, not assumed | “See how those systems hooks, updates and upgrades, tools, internal structure, kernel integration work, research them byte deep” | ✅ **Aligned** | Mandate explicitly calls for deep research/qualification, not assumption. |
+| **M-09** – Migration must be repeatable | No explicit repeatability language. | ✅ **Neutral** | Mandate’s invariants and versioned engine support repeatability. |
+| **M-10** – User data & OS reconstruction separate | Not addressed in mandate. | ⚠️ **Gap** | Mandate’s reparation focus risks conflating user-data migration with OS reconstruction. |
 
-> **Verification note:** The exact in-repo paths below are candidate identifiers based on the Obarun/66+s6 research mirror expected under `evidence/obarun-66-s6/`, `autonomy/results/obarun-hooks/`, and `openclaw/obarun/`. Confirm with:
-> `find /home/tak_0/sunshineos-audit/SunshineOS_Development-Testing \( -path '*obarun*' -o -path '*66*' -o -path '*s6*' \)`
-
----
-
-## 3. Annotated File-by-File Map
-
-| Hook ID | Exact Repository Path | Component | Hook Category | Trigger / Invocation Point | Test ID | Evidence Path | SunshineOS Adoption Note |
-|---------|----------------------|-----------|---------------|----------------------------|---------|---------------|--------------------------|
-| `OHK-001` | `evidence/obarun-66-s6/etc/66/rc` | 66 service manager | init hook | Boot stage 3 (multi-user) | `T-66-RC-01` | `evidence/obarun-66-s6/etc/66/rc` | Baseline for SunshineOS init sequence; replace Obarun branding. |
-| `OHK-002` | `evidence/obarun-66-s6/usr/bin/66` | 66 binary | command hook | `66 enable`, `66 disable`, `66 start`, `66 stop` | `T-66-CLI-02` | `evidence/obarun-66-s6/usr/bin/66` | CLI entry point; audit for environment variable injection. |
-| `OHK-003` | `evidence/obarun-66-s6/etc/66/default/` | 66 defaults | configuration hook | Service default values at enable time | `T-66-DEFAULT-03` | `evidence/obarun-66-s6/etc/66/default/` | Adopt as SunshineOS default service template directory. |
-| `OHK-004` | `evidence/obarun-66-s6/etc/s6/` | s6 supervision | service hook | Service tree start/stop under s6 | `T-S6-TREE-04` | `evidence/obarun-66-s6/etc/s6/` | s6 service directory layout; map to SunshineOS service definitions. |
-| `OHK-005` | `evidence/obarun-66-s6/etc/s6/log/` | s6 logging | logging hook | Service stdout/stderr capture | `T-S6-LOG-05` | `evidence/obarun-66-s6/etc/s6/log/` | Centralized logging hook; superior to journald for recovery scenarios. |
-| `OHK-006` | `evidence/obarun-66-s6/etc/66/dependencies/` | 66 dependency resolver | dependency hook | Service ordering and dependency graph | `T-66-DEP-06` | `evidence/obarun-66-s6/etc/66/dependencies/` | Critical for migration planner dependency resolution. |
-| `OHK-007` | `autonomy/results/obarun-hooks/66-recovery-hook.sh` | Obarun custom | recovery hook | Service failure / system instability | `T-REC-007` | `autonomy/results/obarun-hooks/66-recovery-hook.sh` | Candidate for SunshineOS reparation mechanism (services, daemons, initramfs). |
-| `OHK-008` | `autonomy/results/obarun-hooks/s6-finish-hook` | s6 finish | lifecycle hook | Service process termination | `T-S6-FINISH-08` | `autonomy/results/obarun-hooks/s6-finish-hook` | Use for clean shutdown validation during migration staging. |
-| `OHK-009` | `openclaw/obarun/66/byte-trace-66-enable.log` | OpenClaw trace | measurement hook | `66 enable` syscall/byte trace | `T-OC-66-ENABLE-09` | `openclaw/obarun/66/byte-trace-66-enable.log` | Byte-deep measurement of state changes; adopt for migration journaling. |
-| `OHK-010` | `other/obarun-hooks/fstab-repair-hook` | Obarun custom | filesystem hook | fstab validation and repair | `T-FSTAB-010` | `other/obarun-hooks/fstab-repair-hook` | Direct input to SunshineOS sustainability tool (fstab repair). |
+**Key contradictions/flags:**
+- **M-06**: The “reparation mechanism” description must be reframed as staged, journalled operations with compensating transactions, not an all-powerful repair oracle.
+- **M-05**: Program continuity (“work can not stop”) ≠ engine behavior; engine must stage changes per M-05.
+- **M-10**: User-data separation must be explicitly baked into the reparation mechanism design.
 
 ---
 
-## 4. Hook Code Path Taxonomy
+# Prioritized Defect List (File: `reports/USER_MIGRATION_MANDATE_2026-11-21.md`)
 
-### 4.1 66 Service Manager Hooks
-- **Init hook:** `/etc/66/rc` — runs at boot to bring up the 66 service tree.
-- **CLI hook:** `/usr/bin/66` — entry point for all service mutations; each subcommand is a hookable transaction.
-- **Defaults hook:** `/etc/66/default/*` — per-service default environment and options.
-- **Dependency hook:** `/etc/66/dependencies/*` — static dependency declarations used by the planner.
-
-### 4.2 s6 Supervision Hooks
-- **Service tree hook:** `/etc/s6/` — service directories containing `run`, `finish`, `type`.
-- **Logging hook:** `/etc/s6/log/*` — `s6-log` pipelines capturing service output.
-- **Finish hook:** `finish` scripts executed on service process exit.
-
-### 4.3 Obarun Custom Hooks
-- **Recovery hook:** `66-recovery-hook.sh` — attempts automatic service restart and state rollback.
-- **Filesystem hook:** `fstab-repair-hook` — validates and repairs `/etc/fstab` entries.
+| Priority | Defect | Exact Path | Current Text (cerpt) | Correction Required |
+|----------|--------|------------|----------------------|---------------------|
+| **P1** | M-06 violation – reparation mechanism described without explicit recovery/journaling | `reports/USER_MIGRATION_MANDATE_2026-11-21.md` | “Build reparation mechanism for the system that will be able to completely repair the systems services, packages, daemons, instabilities, fstab, initramfs, basically a sustainability tool that will be WAY superior to the ones of Windows 10 and 11, MacOS, Fedora, Garuda, EndeavourOS, Ubuntu, openSUSE.” | Rephrase to: “Build a staged reparation mechanism where each operation is journalled, validated, and has an explicit compensating transaction. Recovery must be verifiable and repeatable per M-06.” |
+| **P2** | M-10 gap – user data/OS reconstruction separation not stated | `reports/USER_MIGRATION_MANDATE_2026-11-21.md` | (No explicit statement; reparation focus implies OS-wide file migration.) | Add invariant: “User data and operating-system reconstruction are separate. The reparation mechanism must rebuild OS services/packages/daemons without blindly migrating every old file (M-10).” |
+| **P3** | M-05 risk – “work can not stop” could override staging | `reports/USER_MIGRATION_MANDATE_2026-11-21.md` | “From now on - also download Obarun Linux, Windows 11 ISO, EndeavourOS, GarudaOS, Artix, Arch (2026) and Arch (2015), CachyOS, Omarchy, SteamOS. DEEPLY research those distros…” | Insert design note: “Program-level continuity does not override engine staging. Each migration operation must be staged, validated, and only then switched per M-05.” |
+| **P4** | Missing artifact archival language (M-07) | `reports/USER_MIGRATION_MANDATE_2026-11-21.md` | “DEEPLY research those distros, copy their strongest tools and decisions…” | Add: “All researched artifacts, hooks, and measurements must be archived with stable identifiers and content hashes; old migration paths cannot depend exclusively on repositories that may disappear (M-07).” |
+| **P5** | `autonomy/results` and `autonomy/qc/latest.md` not surveyed | `autonomy/results`, `autonomy/qc/latest.md` | Not provided in prompt. | Obtain file contents; catalogue exact paths and verify claims against invariants. |
 
 ---
 
-## 5. Test IDs and Evidence Mapping
+# Actionable Corrections (to be applied to `reports/USER_MIGRATION_MANDATE_2026-11-21.md`)
 
-| Test ID | Covers Hook ID | Evidence Path | Validation Criteria |
-|---------|----------------|---------------|---------------------|
-| `T-66-RC-01` | `OHK-001` | `evidence/obarun-66-s6/etc/66/rc` | Boot reaches multi-user target without manual intervention. |
-| `T-66-CLI-02` | `OHK-002` | `evidence/obarun-66-s6/usr/bin/66` | `66 enable/disable/start/stop` exit codes match expected states. |
-| `T-66-DEFAULT-03` | `OHK-003` | `evidence/obarun-66-s6/etc/66/default/` | Default values applied when service has no custom override. |
-| `T-S6-TREE-04` | `OHK-004` | `evidence/obarun-66-s6/etc/s6/` | s6 service tree starts all declared services in dependency order. |
-| `T-S6-LOG-05` | `OHK-005` | `evidence/obarun-66-s6/etc/s6/log/` | Service logs rotated and retained per policy. |
-| `T-66-DEP-06` | `OHK-006` | `evidence/obarun-66-s6/etc/66/dependencies/` | Dependency cycles detected; start order topologically sorted. |
-| `T-REC-007` | `OHK-007` | `autonomy/results/obarun-hooks/66-recovery-hook.sh` | Failed service recovered within defined SLA; system state consistent. |
-| `T-S6-FINISH-08` | `OHK-008` | `autonomy/results/obarun-hooks/s6-finish-hook` | `finish` script executes on service termination; exit code logged. |
-| `T-OC-66-ENABLE-09` | `OHK-009` | `openclaw/obarun/66/byte-trace-66-enable.log` | Byte-level diff of filesystem before/after `66 enable` matches journal. |
-| `T-FSTAB-010` | `OHK-010` | `other/obarun-hooks/fstab-repair-hook` | Invalid fstab entries detected and repaired without data loss. |
+1. **Insert M-06-aligned reparation paragraph** after the “reparation mechanism” section:
+   > “All reparation operations shall be staged with explicit journaling. Each mutation has a compensating transaction. Recovery is verified via content-hash-checked rollback. The mechanism is superior not by blind scope, but by repeatable, validated recovery per invariant M-06.”
 
----
+2. **Append M-10 invariant statement** at the document’s end:
+   > “**M-10 Invariant:** User data and operating-system reconstruction are separate. The reparation mechanism rebuilds OS services, packages, daemons, fstab, and initramfs without migrating every old file. User data preservation is a distinct pipeline.”
 
-## 6. Gaps and Verification Required
+3. **Add M-05 staging note** beside the 76-hour program directive:
+   > “Program continuity is orthogonal to engine staging. Each migration step must be prepared, validated in a staging area, and only then promoted to the running system (M-05).”
 
-1. **Repository indexing:** Run `find` against `evidence/`, `autonomy/results/`, and `openclaw/` to confirm the exact paths listed above. Update this catalogue with confirmed in-repo identifiers.
-2. **Hook source vs. binary:** Distinguish between source hook scripts (adoptable) and compiled binaries (audit only).
-3. **Test execution:** None of the test IDs above have been executed against SunshineOS targets. Schedule Wave 2 for test harness integration.
-4. **Signature verification:** Confirm that all Obarun/66+s6 artifacts carry content hashes and digital signatures per invariant M-02 / M-03.
+4. **M-07 archival addendum** in the distro-research section:
+   > “All tooling, hooks, and measurements extracted from Obarun, Windows 11, EndeavourOS, Garuda, Artix, Arch (2026/2015), CachyOS, Omarchy, and SteamOS shall be archived with stable identifiers, schema versions, and content hashes. No migration path shall depend exclusively on repositories that may disappear (M-07).”
 
 ---
 
-## 7. Adoption Recommendations for SunshineOS
+# Missing File Status
 
-- **Clone Garuda Toolbox pattern:** Build a SunshineOS "Toolbox" app that exposes 66/s6 hooks via a GUI, stripping Garuda branding and applying SunshineOS design tokens.
-- **Reparation mechanism:** Use `OHK-007` (recovery hook) and `OHK-010` (fstab hook) as the core of the sustainability tool; extend to initramfs, daemons, and package state.
-- **Migration journaling:** Model the migration executor journal on `OHK-009` byte traces so every operation is reversible and verifiable.
-- **Hook staging:** All SunshineOS migration hooks must be staged and validated before execution (invariant M-05), using the 66 dependency graph (`OHK-006`) as the safety layer.
+| Path | Status | Required Action |
+|------|--------|-----------------|
+| `autonomy/results` | Not in prompt | Provide content for survey; verify claims against M-01..M-10. |
+| `autonomy/qc/latest.md` | Not in prompt | Provide content for QC focus test-ID validity; flag fabricated identifiers or unsafe commands. |
+
+> **No credentials, tokens, or key values** are present in the mandate text. The OpenRouter key reference is purely program-assignment language (“assign 2 subordinate agents”) with no key values exposed.
 
 ---
 
-**End of Wave 1 deliverable.**  
-Next wave: deepen into s6 service directory semantics (`run`/`finish`/`type` contracts) and map them to SunshineOS migration executor adapters.
+**Deliverable:** Prioritized defect list above, exact file paths, and correction text aligned to invariants M-01..M-10. Missing `autonomy/results` and `autonomy/qc/latest.md` must be supplied for full Wave 1 catalogue completion.

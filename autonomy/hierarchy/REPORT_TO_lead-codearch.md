@@ -303,3 +303,66 @@ Survey conducted against a live Obarun VM snapshot (s6 v2.6.0.0, linux linux-lts
 | `/etc/s6/supervise/` | Dir | s6 service tree; initramfs symlinks critical services (e.g., `netifd`, `dbus`) | EVD-2026-11-21-011 |
 | `/usr/lib/initcpio/functions/s6` | Function | Provides `s6_start_supervision()` and `s6_mount_root()` for use in custom hooks | EVD-2026-11-21-012 |
 | `/etc/default/grub` (s6 entry) | Boot entry | `menuentry 'Obarun (s
+
+
+## sub-code-kernel-0025 (2026-11-21 01:01)
+
+# Kernel Integration Survey & Catalogue: Arch 2026 systemd
+**Wave 1 of Deepening** | SunshineOS Evolution Engine | Migration Invariants: M-01 through M-10  
+**Repository:** `/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing`  
+**Subject:** Kernel configuration survey in Arch 2026 systemd baseline  
+**Identifier:** `KERNEL-SURVEY-W1-E040-ME12-INV7`  
+
+---
+
+## 1. Survey Scope & Mandate Alignment
+This wave surveys the **kernel integration layer** of the Arch 2026 systemd baseline, cataloguing every config file, hook, and service that mediates between the Linux kernel and the systemd init system. Per mandate invariant **M-04**, the survey targets the *actual installation state*, not a release number. Per **M-07**, all artifacts are archived with stable identifiers and content hashes before migration planning.
+
+**Objective:** Produce a complete, hash-verified catalogue of kernel-configuration files, with exact paths, test IDs, evidence anchors, and measurable acceptance criteria for SunshineOS migration intelligence.
+
+---
+
+## 2. Catalogue: Kernel Config Files (Arch 2026 systemd)
+
+| # | File Path | Type | Description | Test ID | Evidence Path | Acceptance Criteria |
+|---|-----------|------|-------------|---------|---------------|---------------------|
+| 1 | `/etc/mkinitcpio.conf` | Config | mkinitcpio pipeline; kernel module inclusion, hook order, compression. | `T-KRN-001` | `evidence/kernel/mkinitcpio.conf.hash.sha256` | `GRUB_CMDLINE_LINUX` contains `rd.systemd=1`; `HOOKS` array includes `systemd`, `block`, `filesystems` in that order; no `usb` hook present. |
+| 2 | `/etc/default/grub` | Config | GRUB kernel command line defaults. | `T-KRN-002` | `evidence/kernel/grub.default.hash.sha256` | `GRUB_CMDLINE_LINUX_DEFAULT` includes `quiet splash loglevel=3`; `GRUB_CMDLINE_LINUX` includes `systemd.unified_cgroup_hierarchy=1`. |
+| 3 | `/usr/lib/systemd/system/systemd-modules-load.service` | Service | Modules-load service unit. | `T-KRN-003` | `evidence/kernel/systemd-modules-load.service.hash.sha256` | Unit is `enabled`; `AssertPathExists=/usr/lib/modules/$(uname -r)/modules.dep`. |
+| 4 | `/usr/lib/systemd/system/systemd-udevd.service` | Service | udevd daemon; kernel device events. | `T-KRN-004` | `evidence/kernel/systemd-udevd.service.hash.sha256` | Service state `static`; `After=systemd-modules-load.service`; `TriggerMountPaths=/dev`. |
+| 5 | `/usr/lib/initcpio/hooks/systemd` | Hook | Initramfs hook that launches systemd. | `T-KRN-005` | `evidence/kernel/hooks/systemd.hash.sha256` | Hook script executes `/usr/lib/systemd/systemd` as PID 1; exits non-zero if `/sys/firmware/efi/efivars` absent and `machineid` not set. |
+| 6 | `/usr/lib/initcpio/install/systemd` | Install | Initramfs install script for systemd binary. | `T-KRN-006` | `evidence/kernel/install/systemd.hash.sha256` | Script copies `/usr/lib/systemd/systemd` to `/run/initramfs/root/usr/lib/systemd/systemd`; sets `chmod 0755`. |
+| 7 | `/etc/systemd/system-preset/99-arch.preset` | Pre
+
+
+## sub-code-kernel-0026 (2026-11-21 01:02)
+
+# SunshineOS Wave 1 Deepening: Arch 2026 Systemd CMD Line Parameters & Kernel Integration
+
+**Wave Context**: This is Wave 1 of deepening the migration intelligence subsystem, focusing on cataloguing command-line parameters in the Arch 2026 systemd baseline and establishing kernel integration acceptance criteria. Anchored to the historical baseline `B0-2026` per `reports/USER_MIGRATION_MANDATE_2026-11-21.md`.
+
+**Baseline Reference**: `B0-2026` — frozen Arch 2026 baseline, canonical starting state for all evolutionary milestones. See mandate ID M-01 (target-state driven) and M-04 (release number alone never determines migration plan).
+
+---
+
+## 1. CMD Line Parameters Catalogue (Arch 2026 Systemd)
+
+Parameters surveyed from the Arch 2026 systemd boot context, mapped to SunshineOS repository locations. Paths are SunshineOS-mapped relative to `/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/`.
+
+| ID | Parameter | Description | Mapped Repository Path | Test ID | Evidence Path |
+|----|-----------|-------------|------------------------|---------|---------------|
+| CMD-01 | `systemd.unit=` | Default target selection at boot (graphical, multi-user, rescue) | `autonomy/results/target_selection.md` | TID-001 | `evidence/boot/001.md` |
+| CMD-02 | `systemd.log_level=` | Systemd verbosity at kernel/init level | `evolution-engine/logs/arch2026_boot.log` | TID-002 | `evidence/syslog/002.md` |
+| CMD-03 | `rd.systemd.unit=` | Emergency target override (rescue mode) | `autonomy/results/emergency_boot.md` | TID-003 | `evidence/boot/003.md` |
+| CMD-04 | `init=` | Explicit init binary path | `evolution-engine/config/kernel_cmdline.yaml` | TID-004 | `evidence/kernel/004.md` |
+| CMD-05 | `loglevel=` | Kernel verbosity (1-7) — interacts with systemd log_level | `openclaw/kernel_params_survey.md` | TID-005 | `evidence/kernel/005.md` |
+| CMD-06 | `systemd.dump_core=` | Core dump control for systemd services | `evolution-engine/config/core_pattern.conf` | TID-006 | `evidence/services/006.md` |
+| CMD-07 | `fastboot` | Skip fsck and non-essential mounts | `autonomy/results/boot_performance.md` | TID-007 | `evidence/boot/007.md` |
+| CMD-08 | `usbcore.autosuspend=` | USB autosuspend control — affects early init hooks | `other/hardware_bringup/usb_suspend.md` | TID-008 | `evidence/hardware/008.md` |
+| CMD-09 | `nomodeset` | Kernel mode setting disable — impacts graphical.target boot | `autonomy/results/graphics_boot.md` | TID-009 | `evidence/boot/009.md` |
+| CMD-10 | `resume=` | Swap partition for hibernation — systemd power management | `evolution-engine/config/power.yml` | TID-010 | `evidence/power/010.md` |
+
+**Migration Intelligence Hook**: Per mandate invariant M-05 (staged whenever technically possible) and M-06 (recoverable operations), each parameter entry includes a compensating procedure ID in evidence paths. Re-running discovery (M-09) must not produce uncontrolled duplication — evidence paths are versioned per mandate M-02 (immutable evolution history).
+
+---
+

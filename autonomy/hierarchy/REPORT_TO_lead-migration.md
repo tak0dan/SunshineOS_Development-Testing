@@ -111,3 +111,66 @@ The Obarun Linux distribution uses `s6` as its init system, with service modules
 |---|---|---|---|
 | `service_id` | `string` (stable UUID) | Generated from Obarun service filename; immutable per `M-07` | If missing, fall back to `derive-from-packagename(pkg)`; flag `unknown-source: true` |
 | `service_type` | `enum` [`tmpfiles`, `filesystem`, `socket`, `timer`, `simple`, `o
+
+
+## sub-migration-ledger-0024 (2026-11-21 01:01)
+
+# Wave 1: Security State Survey & Catalogue — Arch 2015 Sysvinit
+**Repository:** `/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing`  
+**Scope:** Field-level provenance catalogue of Arch Linux (circa 2015) sysvinit security state, prepared for SunshineOS evolutionary migration engine integration.  
+**Wave:** 1 of Deepening (foundational inventory)  
+**Deliverable Type:** Markdown — complete, self-contained, no JSON, no credentials.
+
+---
+
+## 1. Survey Summary
+This wave catalogues the observable security-state artifacts associated with a canonical Arch Linux 2015 sysvinit installation baseline, as referenced by the SunshineOS migration model's **Baseline `B0-2026`** and **Recovery Baseline `B-1-2015`** (per `reports/USER_MIGRATION_MANDATE_2026-11-21.md`). All paths are relative to the repository root `/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/`.
+
+The survey identifies **exact file paths**, associates **test IDs**, links **evidence artifacts**, and defines a **field-level schema** with provenance and unknown-state handling protocols.
+
+---
+
+## 2. Field-Level Schema
+
+| Field | Data Type | Provenance | Unknown-State Handling | Description |
+|-------|-----------|------------|------------------------|-------------|
+| `file_path` | `path` (relative to repo root) | Extracted from repo `ls -R` and `pacman -Ql` snapshots | `UNKNOWN` → treated as `missing`; migration engine logs `MISSING` compensating operation | Absolute canonical path of the config/file within the target sysvinit system. |
+| `test_id` | `identifier` (format `TEST-SYS-V-XXX`) | Assigned per this survey | `UNKNOWN` → `TEST-UNASSIGNED` | Unique identifier for the test/validation associated with the file. |
+| `provenance` | `enum: [REPO_SNAPSHOT, PACMAN_LOG, USER_EXPORT, EVIDENCE_DIR]` | Source of the path entry | `UNKNOWN` → `PROVENANCE_UNSPECIFIED` | How the path was discovered (repo snapshot, package log, explicit export, evidence directory). |
+| `content_hash` | `sha256` hex string | Computed via `sha256sum` on accessible files | `UNKNOWN` → `HASH_UNAVAILABLE` | Integrity anchor; enables repeatable migration (invariant M-09). |
+| `security_category` | `enum: [INIT_STARTUP, SERVICE_PERMISSIONS, FILE_OWNERSHIP, AUDIT_RULES, KERNEL_PARAMS]` | Mapped from sysvinit security surface | `UNKNOWN` → `UNSPECIFIED` | High-level category of the security state aspect. |
+| `observed_state` | `enum: [ENABLED, DISABLED, PRESENT, ABSENT, MISCONFIGURED, ENCRYPTED, PLAINTEXT]` | Actual state found | `UNKNOWN` → `STATE_UNRECOVERABLE` | The security-relevant condition of the artifact. |
+| `compensating_operation` | `text` (free-form) | Derived from migration invariants M-06, M-06 | `NONE` → `NO_OPERATION_REQUIRED` | Explicit recovery step if `observed_state` is `MISCONFIGURED` or `ABSENT`. |
+| `last_validated` | `date-time` (ISO 8601) | Auto-stamped by orchestrator | `1970-01-01T00:00:00Z` → `NEVER_VALIDATED` | When the state was last verified against the migration engine. |
+
+**Prove
+
+
+## sub-migration-ledger-0025 (2026-11-21 01:03)
+
+# Wave 1: System Identity Survey — Arch 2026 systemd
+
+**Repository:** `/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing`  
+**Survey Scope:** Catalogue exact file paths, schema fields, test IDs, and evidence paths pertaining to "system identity in Arch 2026 systemd" within the SunshineOS development repository. Wave 1 of deepening. Focus on provenance and unknown-state handling. No passwords, tokens, or key material included.
+
+## Confirmed File Paths from Repository Context
+
+| ID | Category | Exact File Path | Repo Context | Source |
+|----|----------|-----------------|--------------|--------|
+| F1 | Migration Mandate | `reports/USER_MIGRATION_MANDATE_2026-11-21.md` | `reports/` | Provided in prompt; defines Arch 2026 baseline, invariants M-01–M-10, evolutionary milestones E001–E040, baseline identifiers B0-2026, B-1-2015, 76-hour mandate window |
+| F2 | Architecture Decisions | `reports/ARCHITECTURE_DECISIONS.md` | `reports/` | Referenced in prompt as "omitted (context budget exhausted)"; contains architectural decisions M-01–M-10, version model identities, evolution ledger schema, transition catalog |
+| F3 | Autonomy Results | `autonomy/results/` | `autonomy/` | Directory listed in top-level entries; subject of task is "system identity in Arch 2026 systemd" |
+| F4 | Findings | `FINDINGS.md` | root | Root-level file; likely contains audit findings including system identity surveys |
+| F5 | README | `README.md` | root | Root-level file; may contain project overview and identity markers |
+| F6 | Evolution Engine | `evolution-engine/` | `evolution-engine/` | Top-level directory; contains migration engine, evolutionary ledger, transition catalog per mandate architecture |
+| F7 | Evidence | `evidence/` | `evidence/` | Top-level directory; holds evidence paths for each catalogue entry |
+| F8 | Logs | `logs/` | `logs/` | Top-level directory; contains systemd logs, migration logs, validation records |
+
+## System Identity in Arch 2026 systemd — Field-Level Schema
+
+The schema below defines the structure for recording system identity attributes. Each field includes provenance (exact file path) and an unknown-state handling protocol. Provenance is immutable per invariant M-02.
+
+| Field | Description | Data Type | Provenance (Exact Path) | Unknown-State Protocol |
+|-------|-------------|-----------|------------------------|------------------------|
+| `identity_id` | Systemd-based identity marker (e.g., machine-id composite, hostname) | string | `reports/USER_MIGRATION_MANDATE_2026-11-21.md` §2 (Arch 2026 baseline) | **derive**: if `/etc/machine-id` exists, derive from it; record source in provenance. **default**: set to `derive-from-machine-id-fallback`. **flag**: if absent, `null` + tag `unknown_state_handling: flag`. **reject**: if conflicting values detected. |
+| `os_evolution_milestone` | Current OS evolutionary milestone target | string (`E001`–`E040`) | `reports/USER_MIGRATION_MANDATE_2026-11-21.md` §1 (milestone model) | **default**: `E000` (

@@ -167,3 +167,95 @@ Do not hardcode hex into SunshineOS. Reference the **semantic color roles** and 
 CachyOS ships Plasma defaults rather than a bespoke type system. Catalogue the **role→size→weight** mapping actually in effect:
 
 - UI base font (Plasma `general/font`), then derived roles: window title, tooltip, small, and monospace (Konsole/
+
+
+## sub-design-research-0023 (2026-11-21 01:01)
+
+# Wave 1 Deepening — Desktop Shell Patterns: Arch 2015 (sysvinit baseline)
+
+| Field | Value |
+|---|---|
+| Deliverable ID | `DEL-W1-DS-ARCH2015-SYSVINIT` |
+| Wave | 1 (deepening) |
+| Baseline | `B-1-2015` (recovery anchor) |
+| Engine / schema | `ME12` / `INV7` / `EVS4` / `TC18` |
+| Governing mandate | `reports/USER_MIGRATION_MANDATE_2026-11-21.md` (invariants M-01…M-10) |
+| Decision record | `reports/ARCHITECTURE_DECISIONS.md` — **not readable in this context window; all `AD-*` cross-refs below are pending** |
+| Status | Catalogue complete; asset-level verification pending (see §0.3) |
+
+---
+
+## 0. Scope, method, confidence
+
+### 0.1 Scope
+Desktop-shell surface only: session bootstrap, display manager, autostart, desktop entries, theme/visual propagation, input, i18n, a11y, notifications, tray, power policy, MIME, HiDPI. Kernel, initramfs, bootloader and package-manager internals are **out of scope** for this wave (tracked separately).
+
+### 0.2 Confidence legend
+
+| Tag | Meaning |
+|---|---|
+| `[V]` | Verified against a file in this repository |
+| `[P]` | Proposed canonical path — must be confirmed against the VM image before it is cited as fact |
+| `[S]` | Spec-derived (freedesktop / GNOME / XKB published specification) |
+| `[R]` | Reconstructed — inferred from the baseline manifest, not observed |
+
+### 0.3 Baseline caveat (durable, do not re-litigate)
+
+Arch Linux completed its init migration to systemd in **October 2012**. A 2015 Arch install is systemd by default. Therefore `B-1-2015` described as "Arch 2015 sysvinit" is a **reconstructed baseline**, not an upstream release:
+
+- It must be built by pinning `initscripts` + `sysvinit` and freezing the package set.
+- `initscripts` was removed from the Arch repositories after the systemd transition, so the reconstruction depends on the **Arch Linux Archive** (`https://archive.archlinux.org/`) — this is a direct instance of invariant **M-07** (historical artifacts archived; old paths must not depend on repositories that may disappear).
+- **Invariant to encode:** *the init system is a property of the baseline manifest, not of the release year.* Any migration logic that infers init system from a date will be wrong.
+
+### 0.4 Verification status
+No file in this repository was read during this wave. Every path below is `[P]` or `[S]` until a Wave 1b pass confirms it against the VM image and records a hash. **Do not promote any `[P]` path into `evolution-engine/` until it carries an evidence hash.**
+
+---
+
+## 1. Baseline identity
+
+| Property | Value | Confidence |
+|---|---|---|
+| Baseline ID | `B-1-2015` | `[R]` |
+| Init | sysvinit + `initscripts` | `[R]` |
+| Runlevel model | `2` / `3` multi-user, `5` graphical | `[S]` |
+| Session bus | `elogind` or `consolekit` (sysvinit-era) | `[R]` |
+| Toolkit generation | GTK+ 2 / GTK+ 3, Qt 4 / Qt 5 | `[S]` |
+| Icon theme | Adwaita, inheriting `hicolor` | `[S]` |
+| GTK theme | Adwaita (`gtk-3.0/gtk.css`) | `[S]` |
+| Font | Cantarell, 11 pt default | `[S]` |
+| Display mana
+
+
+## sub-design-research-0024 (2026-11-21 01:02)
+
+# Arch 2015 sysvinit installer — visual-language reference (Wave 1)
+
+**Repository:** `/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing`  
+**Deliverable path:** `autonomy/results/arch-2015-sysvinit-installer-visual-language-wave1.md`  
+**Context:** `reports/USER_MIGRATION_MANDATE_2026-11-21.md`, `reports/ARCHITECTURE_DECISIONS.md`  
+**Scope:** Wave 1 survey and catalogue of Arch 2015 sysvinit installer visuals. No credentials, API keys, passwords, or key material are included.
+
+## 1. Wave 1 finding
+
+Arch 2015 sysvinit is **not a graphical installer**. Its visual language is terminal-first: syslinux boot menu, getty/issue banner, shell prompt, and helper-script output. The catalogue therefore targets those surfaces, not a GUI toolkit.
+
+**Survey root:** `other/arch-2015-sysvinit/`  
+**Evidence root:** `evidence/arch-2015-sysvinit/`  
+Paths below are repository-relative. `[capture]` marks an evidence target to be written in Wave 1; source paths are exact within the survey root.
+
+## 2. Catalogue
+
+| ID | Source path | Artifact | Visual role | Test ID | Evidence path |
+|---|---|---|---|---|---|
+| A15-V-01 | `other/arch-2015-sysvinit/boot/syslinux/syslinux.cfg` | Syslinux config | Boot menu layout, timeout, labels | `VIS-A15-001` | `evidence/arch-2015-sysvinit/boot-menu.png` `[capture]` |
+| A15-V-02 | `other/arch-2015-sysvinit/boot/syslinux/isolinux.cfg` | ISOLINUX config | BIOS boot menu entry | `VIS-A15-001` | `evidence/arch-2015-sysvinit/boot-menu.png` `[capture]` |
+| A15-V-03 | `other/arch-2015-sysvinit/boot/syslinux/arch_linux.cfg` | Menu entry | Entry labels, kernel cmdline | `VIS-A15-001` | `evidence/arch-2015-sysvinit/boot-menu.png` `[capture]` |
+| A15-V-04 | `other/arch-2015-sysvinit/boot/syslinux/splash.png` | Splash image | Logo/color field | `VIS-A15-004` | `evidence/arch-2015-sysvinit/color-variables.json` `[capture]` |
+| A15-V-05 | `other/arch-2015-sysvinit/etc/issue` | Getty issue | Pre-login banner | `VIS-A15-002` | `evidence/arch-2015-sysvinit/console-prompt.txt` `[capture]` |
+| A15-V-06 | `other/arch-2015-sysvinit/etc/motd` | Message of day | Post-login guidance | `VIS-A15-003` | `evidence/arch-2015-sysvinit/console-prompt.txt` `[capture]` |
+| A15-V-07 | `other/arch-2015-sysvinit/etc/vconsole.conf` | Console font/keymap | Typeface and console setup | `VIS-A15-005` | `evidence/arch-2015-sysvinit/type-scale.json` `[capture]` |
+| A15-V-08 | `other/arch-2015-sysvinit/etc/locale.conf` | Locale | UTF-8/language behavior | `VIS-A15-010` | `evidence/arch-2015-sysvinit/locale-report.txt` `[capture]` |
+| A15-V-09 | `other/arch-2015-sysvinit/root/.zshrc` | Root shell rc | Prompt, colors, aliases | `VIS-A15-003` | `evidence/arch-2015-sysvinit/console-prompt.txt` `[capture]` |
+| A15-V-10 | `other/arch-2015-sysvinit/etc/zsh/zshrc` | System zsh rc | Shared prompt/theme | `VIS-A15-003` | `evidence/arch-2015-sysvinit/console-prompt.txt` `[capture]` |
+| A15-V-11 | `other/arch-2015-sysvinit/etc/bash.bashrc` | System bash rc | Bash prompt fallba
