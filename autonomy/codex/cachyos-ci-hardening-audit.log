@@ -1,0 +1,14 @@
+/home/tak_0/.local/state/sunshine-orchestrator/iso/repos/cachyos-tools/.github/workflows/check-pkg-ver.yml
+  line 10: CI_ACTION_NOT_IMMUTABLE: Third-party action reference is not pinned to a full commit SHA
+  line 1: CI_PERMISSIONS_UNSCOPED: Workflow does not declare a top-level or job-level permissions block
+/home/tak_0/.local/state/sunshine-orchestrator/iso/repos/cachyos-tools/.github/workflows/makepkg.yml
+  line 20: CI_ACTION_NOT_IMMUTABLE: Third-party action reference is not pinned to a full commit SHA
+  line 69: CI_ACTION_NOT_IMMUTABLE: Third-party action reference is not pinned to a full commit SHA
+  line 60: CI_CONTAINER_MUTABLE: Build container is unpinned or uses the mutable latest tag
+  line 1: CI_PERMISSIONS_UNSCOPED: Workflow does not declare a top-level or job-level permissions block
+  line 83: CI_SIGNATURE_CHECK_BYPASS: Package build disables PGP signature verification
+  line 77: CI_UNRESTRICTED_SUDO: CI grants the build user unrestricted passwordless sudo
+/home/tak_0/.local/state/sunshine-orchestrator/iso/repos/cachyos-tools/.github/workflows/validate-pkgbuilds.yml
+  line 7: CI_ACTION_NOT_IMMUTABLE: Third-party action reference is not pinned to a full commit SHA
+  line 4: CI_CONTAINER_MUTABLE: Build container is unpinned or uses the mutable latest tag
+  line 1: CI_PERMISSIONS_UNSCOPED: Workflow does not declare a top-level or job-level permissions block

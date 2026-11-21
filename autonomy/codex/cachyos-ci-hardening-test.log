@@ -1,0 +1,8 @@
+test_CI_CACHYOS_001_flags_mutable_actions_images_and_unsafe_build_flags (tests.test_ci_policy.CachyOSCiPolicyTests.test_CI_CACHYOS_001_flags_mutable_actions_images_and_unsafe_build_flags) ... ok
+test_CI_CACHYOS_002_reports_privileged_pull_request_trigger (tests.test_ci_policy.CachyOSCiPolicyTests.test_CI_CACHYOS_002_reports_privileged_pull_request_trigger) ... ok
+test_CI_CACHYOS_003_accepts_sha_pinned_action_and_digest_container (tests.test_ci_policy.CachyOSCiPolicyTests.test_CI_CACHYOS_003_accepts_sha_pinned_action_and_digest_container) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.001s
+
+OK
