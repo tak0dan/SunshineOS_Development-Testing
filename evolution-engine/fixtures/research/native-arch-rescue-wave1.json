@@ -1,0 +1,98 @@
+{
+  "catalog_id": "native-arch-rescue-wave1",
+  "schema": 1,
+  "project": "SunshineOS cross-distro rescue/tool pull",
+  "commit": "b25032d370b39170e52e6c268bac94195e865448",
+  "sources": [
+    {
+      "source_id": "ARCH-RESCUE-001",
+      "relative_path": "evolution-engine/fixtures/research/sources/iso-corpus-snapshot.json",
+      "sha256": "38cc3f554a2fd8eb0dc25c3ae22397ce11665b0b0b17742081ec59f21658b1c8",
+      "finding": "Six Arch-family ISOs were downloaded and four of six source repositories pulled; Windows 11 and SteamOS were researched through documentation because no stable direct ISO URL was available.",
+      "adoption": "Treat Arch-family evidence as primary and Windows servicing evidence as conceptual input; never claim a Windows ISO or VM was tested.",
+      "limitation": "The corpus records downloads and clones only; it does not prove boot, install, or runtime behavior.",
+      "status": "verified"
+    },
+    {
+      "source_id": "ARCH-RESCUE-002",
+      "relative_path": "reports/CROSS_DISTRO_RESEARCH_2026-11-21.md",
+      "sha256": "5780e1946e8e71b629d1ea71989cffa14f6a419205a81f869a3eefa14f0b12ed",
+      "finding": "Windows 11 servicing uses CBS/SSU/WinSxS with transactional staging, sessions.log/CBS.log, pending operations, DISM ScanHealth/RestoreHealth and SFC; Arch-family systems use pacman, mkinitcpio, snapshots and bootloader-specific recovery.",
+      "adoption": "Map DISM/SFC read-only verification to pacman database/file checks, systemd unit verification, boot artifacts, lock ownership, snapshot readiness and reboot state.",
+      "limitation": "Research describes Windows mechanisms only; no Windows repair operation was executed or imported.",
+      "status": "verified"
+    },
+    {
+      "source_id": "ARCH-RESCUE-003",
+      "relative_path": "reports/cross-distro-stability.md",
+      "sha256": "fc2ec7a1ed9e03dfe150e81a685ed034530d58cf34d14f7e419efea09d5a4163",
+      "finding": "Cross-distro design decisions require observed state, snapshot-before-update, coupled boot artifacts, retained rollback state and a DISM/SFC-style reconcile-and-repair command.",
+      "adoption": "Keep the new rescue assessor read-only, fail closed on contradictory evidence, and leave mutation to the existing journaled repair path.",
+      "limitation": "The report is a design synthesis; it is not executable evidence by itself.",
+      "status": "verified"
+    },
+    {
+      "source_id": "ARCH-RESCUE-004",
+      "relative_path": "autonomy/codex/windows-servicing-wave1.md",
+      "sha256": "a2e46f1b33212b92208ded20d4b798ad500b14e651ffb8ae28d95619f94f829a",
+      "finding": "Captured DISM CheckHealth, ScanHealth, SFC verifyonly and reboot state can be classified without executing repairs; exact commands and narrow clean-output markers are required.",
+      "adoption": "Reuse the same fail-closed classifier shape for captured Arch-native probes with exact argv allowlists.",
+      "limitation": "Localized or unrecognized output remains unknown; the Windows module is not a native Arch replacement.",
+      "status": "verified"
+    },
+    {
+      "source_id": "ARCH-RESCUE-005",
+      "relative_path": "autonomy/codex/windows-servicing-wave1-deepening.md",
+      "sha256": "4a638c4065df3196b83e150b904067f1f749084e6e9fe285695c8fd2b703bb8f",
+      "finding": "Windows servicing repair and journal reconciliation were analyzed as concepts; blind deletion of pending state is unsafe.",
+      "adoption": "Never let the Arch rescue assessor delete a lock or journal; require separate operator-approved recovery and fresh re-observation.",
+      "limitation": "No Windows VM or servicing mutation was performed.",
+      "status": "verified"
+    },
+    {
+      "source_id": "ARCH-RESCUE-006",
+      "relative_path": "autonomy/codex/pacman_lock_repair.py",
+      "sha256": "eea01c0cccf9262d5015068ed364acc871d577457ff3fd7819d2f46995cd745c",
+      "finding": "An ownerless pacman lock is only a stale candidate and cannot authorize automatic deletion; unreadable process state fails closed.",
+      "adoption": "Port the lock-state vocabulary and repair_allowed=false rule into the engine assessor and stop automatic lock removal in the live repair command.",
+      "limitation": "The original module is a standalone pull artifact, not staged into the ISO image.",
+      "status": "verified"
+    },
+    {
+      "source_id": "ARCH-RESCUE-007",
+      "relative_path": "autonomy/codex/cachyos_alpm_hook.py",
+      "sha256": "068ae7a15741c59ccfb1b8605c041cfc068e852435dc8e86f83f4b6f546d5b52",
+      "finding": "ALPM hook metadata can be validated structurally without executing hook commands; absolute Exec and known trigger/action fields are required.",
+      "adoption": "Keep native rescue evidence static or captured; do not execute hook bodies or inferred repair scripts.",
+      "limitation": "Metadata validation does not prove hook runtime behavior.",
+      "status": "verified"
+    },
+    {
+      "source_id": "ARCH-RESCUE-008",
+      "relative_path": "autonomy/codex/cachyos_boot_hook_audit.py",
+      "sha256": "cbb064d5475413f9ca609c10c1f2ed588925dfacb404205a139b619bb96acea6",
+      "finding": "Suppressed mkinitcpio, dracut or kernel-install failures are unsafe unless nearby artifact validation exists.",
+      "adoption": "Treat kernel/initramfs/bootloader configuration as explicit observations and degrade when any are missing.",
+      "limitation": "The audit is a source review aid and does not regenerate boot artifacts.",
+      "status": "verified"
+    },
+    {
+      "source_id": "ARCH-RESCUE-009",
+      "relative_path": "autonomy/codex/garuda_catalog.py",
+      "sha256": "064f62a91bdf2cca7d3c94eecdb41c15ff9319de5f6e1dfa11445a02a91aadf4",
+      "finding": "Adopted patterns are traceable and must declare plan-before-mutation, journal-operation and verify-postcondition controls.",
+      "adoption": "Pin this research pull in a hash-verifiable catalog and require fail-closed evidence before any repair action.",
+      "limitation": "Catalog validation is provenance control, not a functional test of a target system.",
+      "status": "verified"
+    },
+    {
+      "source_id": "ARCH-RESCUE-010",
+      "relative_path": "evolution-engine/src/evolution/tools/windows_servicing.py",
+      "sha256": "bbd6102b0f000339c44983c5e6b2a9b65c107309f7c2f16f3afb8bb017e1d3ae",
+      "finding": "The existing Windows assessor consumes exact read-only DISM/SFC evidence and reports missing, blocked, degraded and clean states without repairs.",
+      "adoption": "Preserve it as source evidence for the Windows-to-Arch mapping and mirror its status vocabulary in arch_rescue.py.",
+      "limitation": "It is Windows-specific and must not be executed from an Arch live environment.",
+      "status": "verified"
+    }
+  ]
+}

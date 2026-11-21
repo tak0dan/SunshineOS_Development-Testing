@@ -1,0 +1,60 @@
+{
+  "created": "2026-11-21T00:14:56.799089",
+  "isos": {
+    "arch-2015": {
+      "url": "https://archive.archlinux.org/iso/2015.12.01/archlinux-2015.12.01-dual.iso",
+      "status": "ok (695205888 bytes)"
+    },
+    "arch-2026": {
+      "url": "https://mirror.rackspace.com/archlinux/iso/latest/archlinux-2026.11.01-x86_64.iso",
+      "status": "ok (1317568512 bytes)"
+    },
+    "endeavouros": {
+      "url": "https://mirrors.tuna.tsinghua.edu.cn/endeavouros/iso/EndeavourOS_Titan-Nova-2026.08.15.iso",
+      "status": "ok (3898638336 bytes)"
+    },
+    "artix-openrc": {
+      "url": "https://mirrors.dotsrc.org/artix-linux/iso/artix-xfce-openrc-20261102-x86_64.iso",
+      "status": "ok (2232604672 bytes)"
+    },
+    "artix-dinit": {
+      "url": "https://mirrors.dotsrc.org/artix-linux/iso/artix-xfce-dinit-20261102-x86_64.iso",
+      "status": "ok (2232711168 bytes)"
+    },
+    "cachyos": {
+      "url": "https://iso.cachyos.org/desktop/260809/cachyos-desktop-linux-260809.iso",
+      "status": "ok (3188850688 bytes)"
+    }
+  },
+  "repos": {
+    "obarun-66": {
+      "url": "https://framagit.org/obarun/66.git",
+      "status": "failed: Cloning into '/home/tak_0/.local/state/sunshine-orchestrator/iso/repos/obarun-66'...\nfatal: could not read Username for 'https://framagit.org': No such device or address\n"
+    },
+    "artix-tools": {
+      "url": "https://github.com/artix-linux/artix-tools.git",
+      "status": "failed: Cloning into '/home/tak_0/.local/state/sunshine-orchestrator/iso/repos/artix-tools'...\nremote: Repository not found.\nfatal: repository 'https://github.com/artix-linux/artix-tools.git/' not found\n"
+    },
+    "s6": {
+      "url": "https://github.com/skarnet/s6.git",
+      "status": "ok"
+    },
+    "cachyos-tools": {
+      "url": "https://github.com/CachyOS/cachyos-pkgbuilds.git",
+      "status": "ok"
+    },
+    "garuda-toolbox": {
+      "url": "https://gitlab.com/garuda-linux/applications/toolbox.git",
+      "status": "ok"
+    },
+    "omarchy": {
+      "url": "https://github.com/basecamp/omarchy.git",
+      "status": "ok"
+    }
+  },
+  "notes": [
+    "discovery at 2026-11-21 00:14: {}",
+    "Omarchy is a host configuration/repo, not an ISO. SteamOS and Windows 11 do not publish stable direct ISO URLs; research their recovery images, servicing stacks and documentation via repositories instead."
+  ],
+  "finished": "2026-11-21T00:55:11.828344"
+}

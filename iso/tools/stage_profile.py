@@ -16,7 +16,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-SUBCOMMANDS = ("health", "sanity", "update", "upgrade", "migrate", "repair", "report")
+SUBCOMMANDS = ("health", "sanity", "update", "upgrade", "migrate", "repair", "rescue", "report")
 IGNORED = {".git", "__pycache__", ".pytest_cache", "*.pyc", ".mypy_cache"}
 # Only these named paths are build outputs. ``src/target`` is an engine package.
 SKIPPED_RELATIVE = {Path("target"), Path("bootstrap-rust/target")}

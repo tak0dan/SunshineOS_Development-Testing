@@ -39,6 +39,10 @@ else
 fi
 
 log "staging profile"
+if [ -z "${SUNSHINE_SOURCE_COMMIT:-}" ]; then
+    SUNSHINE_SOURCE_COMMIT=$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)
+    export SUNSHINE_SOURCE_COMMIT
+fi
 SUNSHINE_ISO_VERSION="$BUILD_ID" python3 "$ROOT/iso/tools/stage_profile.py" \
     --repo "$ROOT" --profile "$PROFILE" --staged "$STAGED" --build-id "$BUILD_ID"
 

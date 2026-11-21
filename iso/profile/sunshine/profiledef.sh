@@ -35,6 +35,7 @@ file_permissions=(
   ["/usr/local/bin/sunshine-upgrade"]="0:0:755"
   ["/usr/local/bin/sunshine-migrate"]="0:0:755"
   ["/usr/local/bin/sunshine-repair"]="0:0:755"
+  ["/usr/local/bin/sunshine-rescue"]="0:0:755"
   ["/usr/local/bin/sunshine-report"]="0:0:755"
   ["/opt/sunshine/evolution-engine/src/engine.py"]="0:0:755"
 )

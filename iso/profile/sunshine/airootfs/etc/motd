@@ -3,13 +3,14 @@ SunshineOS live repair and migration environment.
 Read-only first:
   sunshine-health --deep
   sunshine-sanity --require-snapshot
+  sunshine-rescue
   sunshine-report
 
 Mutating operations always require --apply and a rollback checkpoint:
   sunshine-update --apply
   sunshine-upgrade --apply --trust-index ... --trust-policy ... --trust-keyring ...
   sunshine-migrate --apply --source arch --trust-index ... --trust-policy ... --trust-keyring ...
-  sunshine-repair --apply --fix-lock --reinstall-missing
+  sunshine-repair --apply --reinstall-missing
 
 Every command writes a JSON report under /var/log/sunshine/reports
 and journals decisions in /var/log/sunshine/journal.jsonl.

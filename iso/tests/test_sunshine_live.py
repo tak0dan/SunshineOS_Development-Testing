@@ -186,6 +186,71 @@ class ToolkitTests(unittest.TestCase):
         text = "python: /usr/lib/x.py: No such file or directory\nother: warning: mismatch\n"
         self.assertEqual(sl.parse_missing_packages(text), ["other", "python"])
 
+    def test_rescue_is_read_only_and_uses_arch_native_evidence(self):
+        (self.root / "boot" / "vmlinuz-linux").write_text("kernel")
+        (self.root / "boot" / "initramfs-linux.img").write_text("initramfs")
+        (self.root / "boot" / "loader").mkdir()
+        (self.root / "boot" / "loader" / "loader.conf").write_text("default arch.conf\n")
+        runner = self.runner({
+            "pacman -Dk": result([], stdout="checking dependencies...\n"),
+            "pacman -Qk": result([], stdout="base: 2 total files, 0 missing files\n"),
+            "systemd-analyze verify": result([], stdout=""),
+        })
+        args = sl.build_parser().parse_args([
+            "--root", str(self.root), "rescue", "--reboot-state", "settled",
+        ])
+        report = sl.cmd_rescue(args, runner)
+        self.assertEqual(report["status"], "pass")
+        self.assertTrue(report["assessment"]["healthy"])
+        self.assertFalse(report["assessment"]["blocked"])
+        self.assertTrue(report["assessment"]["safe_to_mutate"])
+        self.assertFalse(any("-S" in call for call in self.calls))
+        self.assertFalse(any("rm" in call for call in self.calls))
+
+    def test_rescue_fails_closed_without_explicit_reboot_state(self):
+        args = sl.build_parser().parse_args(["--root", str(self.root), "rescue"])
+        report = sl.cmd_rescue(args, self.runner())
+        self.assertEqual(report["status"], "blocked")
+        self.assertTrue(report["assessment"]["blocked"])
+        self.assertFalse(report["assessment"]["safe_to_mutate"])
+
+    def test_rescue_marks_degraded_evidence_as_blocked(self):
+        (self.root / "boot" / "vmlinuz-linux").write_text("kernel")
+        runner = self.runner({
+            "pacman -Dk": result([], stdout="checking dependencies...\n"),
+            "pacman -Qk": result([], stdout="base: 1 total files, 0 missing files\n"),
+            "systemd-analyze verify": result([], stdout=""),
+        })
+        args = sl.build_parser().parse_args([
+            "--root", str(self.root), "rescue", "--reboot-state", "settled",
+        ])
+        report = sl.cmd_rescue(args, runner)
+        self.assertEqual(report["status"], "blocked")
+        self.assertTrue(report["assessment"]["degraded"])
+        self.assertFalse(report["assessment"]["safe_to_mutate"])
+
+    def test_repair_never_deletes_a_pacman_lock(self):
+        lock = self.root / "var" / "lib" / "pacman" / "db.lck"
+        lock.parent.mkdir(parents=True, exist_ok=True)
+        lock.write_text("999999\n")
+        args = sl.build_parser().parse_args([
+            "--root", str(self.root), "repair", "--apply", "--allow-no-snapshot",
+            "--fix-lock", "--reboot-state", "settled",
+        ])
+        report = sl.cmd_repair(args, self.runner())
+        self.assertEqual(report["status"], "blocked")
+        self.assertTrue(lock.is_file())
+        self.assertFalse(any("rm" in call for call in self.calls))
+        self.assertTrue(report["actions"][0]["skipped"])
+
+    def test_report_includes_arch_native_rescue_assessment(self):
+        args = sl.build_parser().parse_args(["--root", str(self.root), "report"])
+        report = sl.cmd_report(args, self.runner())
+        rescue = report["repair"]["assessment"]["arch_native_rescue"]
+        self.assertTrue(rescue["collected"])
+        self.assertIn("assessment", rescue)
+        self.assertFalse(report["repair"]["assessment"]["windows_servicing"]["collected"])
+
     def test_report_runs_with_minimal_arguments(self):
         args = sl.build_parser().parse_args(["--root", str(self.root), "report"])
         report = sl.cmd_report(args, self.runner())

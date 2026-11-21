@@ -24,9 +24,15 @@ checked before mutation.
   engine check, plan/apply, and optional verification. It refuses a source
   profile that contradicts observed `os-release`.
 - `sunshine-repair` — assessment-only by default: package health, stale locks,
-  missing-file packages, SteamOS read-only/developer-mode consistency, captured
-  Windows servicing evidence, and A/B slot activation evidence. Explicit
-  `--fix-lock` / `--reinstall-missing` repairs require `--apply`.
+  missing-file packages, native Arch rescue evidence, SteamOS
+  read-only/developer-mode consistency, captured Windows servicing evidence, and
+  A/B slot activation evidence. `--reinstall-missing` requires `--apply`.
+  `--fix-lock` is retained for compatibility but never deletes `db.lck`: an
+  ownerless lock is only a stale candidate and needs separate operator review.
+- `sunshine-rescue` — read-only Arch-native rescue assessment. DISM/SFC concepts
+  are mapped to `pacman -Dk`, `pacman -Qk`, `systemd-analyze verify`, boot
+  artifacts, lock ownership, snapshot readiness and observed reboot state. It
+  has no mutation mode and never deletes a lock or rewrites boot files.
 - `sunshine-report` — combined health, sanity and repair assessment.
 
 Every command accepts `--json`, `--out PATH`, `--root PATH`, and Stage A
@@ -44,6 +50,8 @@ options after the subcommand as well as before it. Reports are written under
    guessed success.
 6. The assessment modules from the evolution engine are reused directly; they
    do not remount, rewrite slots or invoke repair operations on their own.
+7. Windows DISM/SFC and WinRE ideas are translated to Arch-native evidence;
+   no Windows command is executed and no Windows repair action is implied.
 
 ## Build
 
@@ -89,8 +97,8 @@ list rather than pretending an ISO was produced.
 
 ## Verification already run
 
-- `python3 -m unittest discover -s iso/tests -p 'test_*.py' -v` — 23 tests OK.
-- `python3 -m unittest discover -s evolution-engine/tests -p 'test_*.py' -v` — 317 tests OK.
+- `python3 -m unittest discover -s iso/tests -p 'test_*.py' -v` — 28 tests OK.
+- `python3 -m unittest discover -s evolution-engine/tests -p 'test_*.py' -v` — 325 tests OK.
 - `shellcheck iso/build.sh iso/verify.sh iso/tools/sunshine-live iso/profile/sunshine/profiledef.sh`
 - `./iso/build.sh --check` — staged profile validated, no missing files, profiledef syntax OK.
 - Engine smoke test: `sunshine-live --fixture clean-arch upgrade` returned a real plan (rc 0).

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """SunshineOS live maintenance toolkit.
 
-Commands: health, sanity, update, upgrade, migrate, repair, report.
+Commands: health, sanity, update, upgrade, migrate, repair, rescue, report.
 
 Design rules:
 * read-only by default; every mutating path needs an explicit --apply
@@ -26,6 +26,17 @@ from typing import Any, Callable, Iterable
 Runner = Callable[[list[str], int], dict[str, Any]]
 STATUS_ORDER = {"pass": 0, "warn": 1, "fail": 2, "unknown": 3}
 PACKAGE_NAME = re.compile(r"^[a-zA-Z0-9@._+-]+$")
+ARCH_RESCUE_PROBE_COMMANDS = {
+    "pacman-db-check": ("pacman", "-Dk"),
+    "pacman-file-check": ("pacman", "-Qk"),
+    "systemd-unit-verify": ("systemd-analyze", "verify", "default.target"),
+}
+ARCH_RESCUE_TIMEOUTS = {
+    "pacman-db-check": 300,
+    "pacman-file-check": 600,
+    "systemd-unit-verify": 120,
+}
+REBOOT_STATE_VALUES = {"unknown": None, "settled": False, "pending": True}
 
 
 def utc() -> str:
@@ -670,6 +681,70 @@ def _servicing_assessment(directory: str | None) -> dict[str, Any]:
             "findings": [item.__dict__ for item in report.findings]}
 
 
+def _native_lock_assessment(root: Path) -> dict[str, Any] | None:
+    """Return the engine's fail-closed pacman lock state, or None if unavailable."""
+    try:
+        ensure_engine_import()
+        from src.evolution.tools.arch_rescue import assess_pacman_lock
+    except ImportError:
+        return None
+    lock = assess_pacman_lock(root / "var" / "lib" / "pacman" / "db.lck", root / "proc")
+    return lock.to_dict()
+
+
+def _arch_rescue_assessment(root: Path, runner: Runner | None,
+                            reboot_state: str = "unknown") -> dict[str, Any]:
+    """Collect Arch-native rescue evidence and classify it in the engine.
+
+    The live command only observes. It cannot remove a lock, rewrite a unit,
+    regenerate a boot entry, or create a snapshot.
+    """
+    try:
+        ensure_engine_import()
+        from src.evolution.tools.arch_rescue import (
+            ArchRescueProbe,
+            assess_arch_rescue,
+            observe_arch_rescue_root,
+        )
+    except ImportError as exc:
+        return {"collected": False, "reason": f"assessment module unavailable: {exc}"}
+
+    probes: dict[str, Any] = {}
+    for name, command in ARCH_RESCUE_PROBE_COMMANDS.items():
+        result = run(list(command), runner, timeout=ARCH_RESCUE_TIMEOUTS[name])
+        probes[name] = ArchRescueProbe(
+            name=name,
+            command=tuple(command),
+            return_code=None if result.get("timed_out") else result.get("rc"),
+            output=(out(result) + "\n" + str(result.get("stderr", ""))).strip(),
+            timed_out=bool(result.get("timed_out")),
+        )
+
+    observed = observe_arch_rescue_root(root)
+    lock = _native_lock_assessment(root)
+    snapshots = snapshot_inventory(root, runner)
+    observed.update({
+        "lock_state": (lock or {}).get("state"),
+        "lock": lock or {"state": "unknown", "lock_path": str(
+            root / "var" / "lib" / "pacman" / "db.lck"), "detail": "assessor unavailable"},
+        "snapshot_available": snapshots.get("available"),
+        "pending_reboot": REBOOT_STATE_VALUES.get(
+            str(reboot_state).lower(), REBOOT_STATE_VALUES["unknown"]
+        ),
+    })
+    report = assess_arch_rescue(probes, observed=observed)
+    return {
+        "collected": True,
+        "assessment": report.to_dict(),
+        "observed": observed,
+        "probes": {
+            name: {"command": list(probe.command), "return_code": probe.return_code,
+                   "timed_out": probe.timed_out}
+            for name, probe in probes.items()
+        },
+    }
+
+
 def _steamos_assessment(root: Path, runner: Runner | None) -> dict[str, Any]:
     observed: dict[str, Any] = {}
     mount = root_mount(root, runner)
@@ -757,19 +832,9 @@ def cmd_repair(args: argparse.Namespace, runner: Runner | None = None) -> dict[s
     integrity = run(["pacman", "-Qk"], runner, timeout=600)
     missing = parse_missing_packages(integrity.get("stdout", "") + "\n" + integrity.get("stderr", ""))
     lock = root / "var" / "lib" / "pacman" / "db.lck"
-    lock_holder = ""
-    if lock.is_file():
-        try:
-            lock_holder = lock.read_text(encoding="utf-8", errors="replace").splitlines()[0].strip()
-        except (OSError, IndexError):
-            pass
-    holder_alive = False
-    if lock_holder.isdigit():
-        try:
-            os.kill(int(lock_holder), 0)
-            holder_alive = True
-        except OSError:
-            holder_alive = False
+    lock_state = _native_lock_assessment(root) or {
+        "state": "unknown", "lock_path": str(lock), "detail": "assessor unavailable",
+    }
 
     report: dict[str, Any] = {
         "command": "repair", "generated": utc(), "root": str(root),
@@ -778,10 +843,12 @@ def cmd_repair(args: argparse.Namespace, runner: Runner | None = None) -> dict[s
             "package_health": pkg,
             "engine_findings": findings[:50],
             "missing_file_packages": missing,
-            "lock": {"path": str(lock), "exists": lock.is_file(),
-                     "holder": lock_holder, "holder_alive": holder_alive},
+            "lock": lock_state,
             "snapshots": snapshot_inventory(root, runner),
             "steamos": _steamos_assessment(root, runner),
+            "arch_native_rescue": _arch_rescue_assessment(
+                root, runner, getattr(args, "reboot_state", "unknown")
+            ),
             "windows_servicing": _servicing_assessment(servicing_dir),
             "slot_activation": _slot_assessment(
                 slot_evidence, slot_assessment, slot_workflow, target_os
@@ -801,12 +868,19 @@ def cmd_repair(args: argparse.Namespace, runner: Runner | None = None) -> dict[s
         report["status"] = "blocked"
         return report
 
-    if fix_lock and lock.is_file() and not holder_alive:
-        action = run(["rm", "-f", str(lock)], runner)
-        report["actions"].append({"name": "remove-stale-lock", "action": action})
-    elif fix_lock and holder_alive:
-        report["actions"].append({"name": "remove-stale-lock", "skipped": True,
-                                   "reason": "lock holder is alive"})
+    if fix_lock:
+        # An ownerless lock is only a stale candidate. The assessor never
+        # authorizes deletion, so no code path here may remove db.lck.
+        report["actions"].append({
+            "name": "remove-stale-lock", "skipped": True,
+            "reason": "lock deletion is not authorized by read-only evidence; recheck and use a separately approved recovery procedure",
+            "observed_state": lock_state.get("state"),
+        })
+        report["status"] = "blocked"
+        report["reason"] = "automatic lock removal is disabled by the native rescue safety rule"
+        journal({"command": "repair", "apply": True, "snapshot": snap,
+                 "actions": report["actions"], "status": report["status"]})
+        return report
     if reinstall_missing and missing:
         action = run(["pacman", "-S", "--noconfirm", "--needed", *missing], runner, timeout=1800)
         report["actions"].append({"name": "reinstall-missing-packages", "packages": missing, "action": action})
@@ -820,6 +894,25 @@ def cmd_repair(args: argparse.Namespace, runner: Runner | None = None) -> dict[s
     journal({"command": "repair", "apply": True, "snapshot": snap,
              "actions": report["actions"], "status": report["status"]})
     return report
+
+
+def cmd_rescue(args: argparse.Namespace, runner: Runner | None = None) -> dict[str, Any]:
+    """Read-only Arch-native rescue assessment; no repair action is available here."""
+    root = Path(args.root or "/")
+    result = _arch_rescue_assessment(root, runner, getattr(args, "reboot_state", "unknown"))
+    assessment = result.get("assessment") or {}
+    if assessment.get("healthy"):
+        status = "pass"
+    elif assessment.get("blocked") or assessment.get("degraded"):
+        status = "blocked"
+    else:
+        status = "assessment"
+    return {
+        "command": "rescue", "generated": utc(), "root": str(root),
+        "status": status, "apply": False,
+        "remedy": "assessment only; use sunshine-repair with explicit flags after review",
+        **result,
+    }
 
 
 def cmd_report(args: argparse.Namespace, runner: Runner | None = None) -> dict[str, Any]:
@@ -917,10 +1010,18 @@ def build_parser() -> argparse.ArgumentParser:
             p.add_argument("--slot-assessment", metavar="PATH")
             p.add_argument("--slot-workflow", metavar="PATH")
             p.add_argument("--target-os", default="SunshineOS")
+            p.add_argument("--reboot-state", choices=tuple(REBOOT_STATE_VALUES), default="unknown",
+                           help="observed servicing reboot state (default: unknown)")
         if name == "repair":
             p.add_argument("--fix-lock", action="store_true")
             p.add_argument("--reinstall-missing", action="store_true")
         p.set_defaults(func=func)
+
+    p = sub.add_parser("rescue", help="read-only Arch-native rescue assessment")
+    add_common(p, suppress=True)
+    p.add_argument("--reboot-state", choices=tuple(REBOOT_STATE_VALUES), default="unknown",
+                   help="observed servicing reboot state (default: unknown)")
+    p.set_defaults(func=cmd_rescue)
     return parser
 
 
