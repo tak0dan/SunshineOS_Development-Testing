@@ -1,0 +1,1 @@
+Inspected mandate, architecture decisions, SteamOS repository catalogues, the existing A/B staging and activation work, and the Valve-reported developer-mode failure. Added an assessment-only readonly/devmode diagnostic and eight regression cases. Focused suite passed: 8 tests, OK. No unrelated dirty files were edited.
