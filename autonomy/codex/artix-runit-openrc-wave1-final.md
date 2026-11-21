@@ -12,7 +12,7 @@ This catalog is grounded in the checked-out engine and local corpus metadata. Th
 | Generic supervisor | `evolution-engine/src/evolution/tools/service_supervision.py::ServiceSupervisor.plan` | systemd plans concrete argv. 66/s6 have no mutation plan absent a qualified inventory adapter. |
 | Artix planner | `evolution-engine/src/evolution/tools/artix_services.py::plan_artix_service`; `ArtixServicePlan.to_dict` | OpenRC uses the exact `/etc/init.d/<service>` observation and emits runlevel/runtime argv. runit requires `/etc/runit/sv/<service>`; runtime operations also require the exact `/run/runit/service/<service>` observation. Its activation boundary is serialized explicitly. |
 | Public tool surface | `evolution-engine/src/evolution/tools/__init__.py` | Exports `ArtixServicePlan` and `plan_artix_service`. |
-| Regression suite | `evolution-engine/tests/test_artix_services.py::ArtixServicePlanTests` | Nine `ARTIX_SVC_*` contracts cover ordering, observed paths, package ownership, argv safety, activation qualification, and serialization. |
+| Regression suite | `evolution-engine/tests/test_artix_services.py::ArtixServicePlanTests` | Ten `ARTIX_SVC_*` contracts cover ordering, observed paths, package ownership, argv safety, activation qualification, serialization, and init-specific evidence rejection. |
 
 ## Catalogue and adoption limits
 
@@ -27,10 +27,12 @@ This catalog is grounded in the checked-out engine and local corpus metadata. Th
 
 `ArtixServicePlan.to_dict()` now provides a deterministic JSON-compatible representation and retains `activation_transition_required`; without that field, downstream plan storage could erase the distinction between runtime state and persistent activation. Regression `ARTIX_SVC_009` verifies the emitted argv and activation marker.
 
+The OpenRC planner also rejects a supplied runit active-service path (`ARTIX_SVC_010`), preventing mixed-supervisor evidence from being silently ignored.
+
 ## Verification evidence
 
-- `ARTIX_SVC_001`–`ARTIX_SVC_009`: targeted suite passed (9 tests).
-- Full migration-engine suite: 174 tests passed.
-- Captured output: `autonomy/codex/artix-runit-openrc-wave1-final-test.log`.
+- `ARTIX_SVC_001`–`ARTIX_SVC_010`: targeted suite passed (10 tests).
+- Full migration-engine suite: 175 tests passed.
+- Captured output: `autonomy/codex/artix-runit-openrc-wave1-final-test.log` and `autonomy/codex/artix-runit-openrc-wave1-final-full-test.log`.
 
 This is planner-level coverage, not VM qualification. No runit service filesystem, dependency conversion, journaled service execution, or rollback path was exercised.

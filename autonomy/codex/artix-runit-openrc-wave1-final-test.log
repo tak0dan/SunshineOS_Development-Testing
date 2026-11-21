@@ -7,13 +7,9 @@ test_ARTIX_SVC_006_runit_disable_targets_only_observed_active_service (tests.tes
 test_ARTIX_SVC_007_commands_are_argv_and_unobserved_active_paths_reject (tests.test_artix_services.ArtixServicePlanTests.test_ARTIX_SVC_007_commands_are_argv_and_unobserved_active_paths_reject) ... ok
 test_ARTIX_SVC_008_runit_runtime_plan_marks_persistent_activation_unresolved (tests.test_artix_services.ArtixServicePlanTests.test_ARTIX_SVC_008_runit_runtime_plan_marks_persistent_activation_unresolved) ... ok
 test_ARTIX_SVC_009_plan_serialization_preserves_unresolved_transition (tests.test_artix_services.ArtixServicePlanTests.test_ARTIX_SVC_009_plan_serialization_preserves_unresolved_transition) ... ok
+test_ARTIX_SVC_010_openrc_rejects_runit_activation_evidence (tests.test_artix_services.ArtixServicePlanTests.test_ARTIX_SVC_010_openrc_rejects_runit_activation_evidence) ... ok
 
 ----------------------------------------------------------------------
-Ran 9 tests in 0.002s
-
-OK
-..............................................................................................................................................................................
-----------------------------------------------------------------------
-Ran 174 tests in 14.987s
+Ran 10 tests in 0.002s
 
 OK
