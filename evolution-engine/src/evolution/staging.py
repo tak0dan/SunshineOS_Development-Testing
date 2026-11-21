@@ -161,6 +161,15 @@ class WorkflowRun:
     def __post_init__(self) -> None:
         if self.strategy not in STRATEGIES:
             raise ValueError(f"unknown migration strategy {self.strategy!r}")
+        if not isinstance(self.completed, list):
+            raise ValueError("workflow completed phases must be a list")
+        if self.completed != list(PHASES[:len(self.completed)]):
+            raise ValueError("workflow history must be a valid phase prefix")
+        expected = PHASES[len(self.completed)] if len(self.completed) < len(PHASES) else None
+        if self.current != expected:
+            raise ValueError(f"workflow current phase must be {expected!r}")
+        if self.aborted and expected is None:
+            raise ValueError("a completed workflow cannot be aborted")
 
     def advance(self, phase: str) -> None:
         if self.aborted:
@@ -176,6 +185,12 @@ class WorkflowRun:
         )
 
     def abort(self, at: str) -> None:
+        if self.aborted:
+            raise ValueError("workflow is already aborted")
+        if at != self.current:
+            raise ValueError(f"can only abort at current phase {self.current!r}")
+        if self.current is None:
+            raise ValueError("cannot abort a completed workflow")
         self.aborted = True
         self.current = at
 

@@ -674,6 +674,8 @@ class ArtifactRecoveryQualificationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             WorkflowRun("staged_root").advance("Commit")
         workflow2 = WorkflowRun("in_place")
+        for phase in PHASES[:PHASES.index("ValidateStaged")]:
+            workflow2.advance(phase)
         workflow2.abort("ValidateStaged")
         self.assertFalse(workflow2.done)
         with self.assertRaises(ValueError):

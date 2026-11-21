@@ -72,6 +72,17 @@ class SteamOsABStagingTests(unittest.TestCase):
             workflow.advance("ValidateStaged")
         self.assertNotIn("Activate", workflow.completed)
 
+    def test_STEAMOS_AB_006_forged_history_cannot_skip_staged_validation(self) -> None:
+        with self.assertRaisesRegex(ValueError, "valid phase prefix"):
+            WorkflowRun("ab_slot", completed=["Discover", "Build"])
+        with self.assertRaisesRegex(ValueError, "current phase"):
+            WorkflowRun("ab_slot", completed=["Discover"], current="Activate")
+
+        workflow = WorkflowRun("ab_slot")
+        with self.assertRaisesRegex(ValueError, "only abort at current phase"):
+            workflow.abort("Activate")
+        self.assertEqual(workflow.current, "Discover")
+
 
 if __name__ == "__main__":
     unittest.main()

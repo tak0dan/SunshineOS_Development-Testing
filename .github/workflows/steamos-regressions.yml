@@ -1,0 +1,20 @@
+name: SteamOS-inspired safety regressions
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  steamos-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Run A/B staging and activation regressions
+        run: python3 -m unittest discover -s evolution-engine/tests -p 'test_steam_os_ab_*.py' -v
+      - name: Run readonly and developer-mode repair regressions
+        run: python3 -m unittest discover -s evolution-engine/tests -p 'test_steamos_repair.py' -v
+      - name: Audit workflow trust policy
+        run: python3 autonomy/codex/ci_policy_audit.py .
