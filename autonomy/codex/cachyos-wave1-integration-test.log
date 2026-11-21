@@ -1,0 +1,14 @@
+test_HOOK_001_cachyos_kernel_hook_satisfies_contract (autonomy.codex.test_cachyos_alpm_hook.CachyOSAlpmHookTests.test_HOOK_001_cachyos_kernel_hook_satisfies_contract) ... ok
+test_HOOK_002_missing_target_fails_closed (autonomy.codex.test_cachyos_alpm_hook.CachyOSAlpmHookTests.test_HOOK_002_missing_target_fails_closed) ... ok
+test_HOOK_003_unknown_key_is_rejected (autonomy.codex.test_cachyos_alpm_hook.CachyOSAlpmHookTests.test_HOOK_003_unknown_key_is_rejected) ... ok
+test_HOOK_004_relative_exec_is_rejected (autonomy.codex.test_cachyos_alpm_hook.CachyOSAlpmHookTests.test_HOOK_004_relative_exec_is_rejected) ... ok
+test_audit_001_suppressed_failure_without_validation_is_reported (autonomy.codex.test_cachyos_boot_hook_audit.CachyBootHookAuditTests.test_audit_001_suppressed_failure_without_validation_is_reported) ... ok
+test_audit_002_nearby_validation_closes_finding (autonomy.codex.test_cachyos_boot_hook_audit.CachyBootHookAuditTests.test_audit_002_nearby_validation_closes_finding) ... ok
+test_audit_003_checked_generation_is_not_reported (autonomy.codex.test_cachyos_boot_hook_audit.CachyBootHookAuditTests.test_audit_003_checked_generation_is_not_reported) ... ok
+test_audit_004_cachyos_uki_branch_has_artifact_validation (autonomy.codex.test_cachyos_boot_hook_audit.CachyBootHookAuditTests.test_audit_004_cachyos_uki_branch_has_artifact_validation)
+The cached CachyOS script has a later empty-UKI fatal check. ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.001s
+
+OK
