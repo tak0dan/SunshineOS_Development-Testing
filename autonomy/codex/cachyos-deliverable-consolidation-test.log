@@ -1,0 +1,10 @@
+test_CAT_001_cachyos_catalog_has_unique_verified_records (tests.test_research_catalog.ResearchCatalogTests.test_CAT_001_cachyos_catalog_has_unique_verified_records) ... ok
+test_CAT_002_matching_snapshot_passes_content_verification (tests.test_research_catalog.ResearchCatalogTests.test_CAT_002_matching_snapshot_passes_content_verification) ... ok
+test_CAT_003_changed_snapshot_fails_closed (tests.test_research_catalog.ResearchCatalogTests.test_CAT_003_changed_snapshot_fails_closed) ... ok
+test_CAT_004_parent_traversal_is_rejected (tests.test_research_catalog.ResearchCatalogTests.test_CAT_004_parent_traversal_is_rejected) ... ok
+test_CAT_005_unverified_claim_is_not_accepted_as_catalogue_evidence (tests.test_research_catalog.ResearchCatalogTests.test_CAT_005_unverified_claim_is_not_accepted_as_catalogue_evidence) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.005s
+
+OK
