@@ -34,6 +34,11 @@ class ProfileTests(unittest.TestCase):
             self.assertIn("vmlinuz-linux", text)
             self.assertIn("cow_spacesize=4G", text)
 
+    def test_pacman_configurations_declare_architecture(self):
+        for path in (PROFILE / "pacman.conf", PROFILE / "airootfs/etc/pacman.conf"):
+            self.assertTrue(path.is_file(), path)
+            self.assertIn("Architecture = auto", path.read_text())
+
     def test_boot_loader_entry_points_exist(self):
         loader = PROFILE / "efiboot/loader/loader.conf"
         self.assertTrue(loader.is_file())
