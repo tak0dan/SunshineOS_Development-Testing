@@ -1,0 +1,19 @@
+test_GARUDA_REPAIR_001_missing_lock_is_reported_without_mutation (autonomy.codex.test_pacman_lock_repair.PacmanLockRepairTests.test_GARUDA_REPAIR_001_missing_lock_is_reported_without_mutation) ... ok
+test_GARUDA_REPAIR_002_live_package_manager_blocks_repair (autonomy.codex.test_pacman_lock_repair.PacmanLockRepairTests.test_GARUDA_REPAIR_002_live_package_manager_blocks_repair) ... ok
+test_GARUDA_REPAIR_003_ownerless_lock_is_candidate_not_authorization (autonomy.codex.test_pacman_lock_repair.PacmanLockRepairTests.test_GARUDA_REPAIR_003_ownerless_lock_is_candidate_not_authorization) ... ok
+test_GARUDA_REPAIR_004_unavailable_process_table_fails_closed (autonomy.codex.test_pacman_lock_repair.PacmanLockRepairTests.test_GARUDA_REPAIR_004_unavailable_process_table_fails_closed) ... ok
+test_GARUDA_CAT_001_source_revision_and_records_validate (autonomy.codex.test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_001_source_revision_and_records_validate) ... ok
+test_GARUDA_CAT_002_adoption_needs_plan_journal_and_verification (autonomy.codex.test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_002_adoption_needs_plan_journal_and_verification) ... ok
+test_GARUDA_CAT_003_duplicate_ids_fail_closed (autonomy.codex.test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_003_duplicate_ids_fail_closed) ... ok
+test_GARUDA_CAT_004_adopted_pattern_without_journal_is_rejected (autonomy.codex.test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_004_adopted_pattern_without_journal_is_rejected) ... ok
+test_GARUDA_CAT_005_invalid_invariant_reference_is_rejected (autonomy.codex.test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_005_invalid_invariant_reference_is_rejected) ... ok
+test_GARUDA_CAT_006_non_object_catalog_fails_closed (autonomy.codex.test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_006_non_object_catalog_fails_closed) ... ok
+test_GARUDA_CAT_007_revision_must_be_full_lowercase_hex (autonomy.codex.test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_007_revision_must_be_full_lowercase_hex) ... ok
+test_GARUDA_CAT_008_non_object_finding_fails_closed (autonomy.codex.test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_008_non_object_finding_fails_closed) ... ok
+test_GARUDA_CAT_009_source_path_traversal_is_rejected (autonomy.codex.test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_009_source_path_traversal_is_rejected) ... ok
+test_GARUDA_CAT_010_malformed_control_shape_fails_closed (autonomy.codex.test_garuda_catalog.GarudaCatalogTests.test_GARUDA_CAT_010_malformed_control_shape_fails_closed) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.006s
+
+OK
