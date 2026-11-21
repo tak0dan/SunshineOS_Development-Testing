@@ -2,10 +2,16 @@
 
 ## Result
 
-The ISO rebuild is staged and verified up to the final image-creation step. No
-bootable ISO is claimed: the current host cannot run `mkarchiso` (missing
-`mkarchiso`, `pacstrap`, `mksquashfs`, `unsquashfs`, and no passwordless sudo).
-The build script reports that explicitly instead of fabricating an image.
+A real image artifact was produced by CI at commit `82082b1`:
+`sunshineos-2026.11.21-x86_64.iso`, 1,191,051,264 bytes, SHA-256
+`0bd1bd6c8bb692a7b34b8688545fcda7aff7841723e603a38b65dab572ff5e3c`. It passed
+structural verification (boot catalog, kernel, identity, checksum manifest). A
+BIOS/UEFI boot test and installation test have not been performed, so no boot
+claim is made.
+
+The local host still cannot run `mkarchiso` (missing `mkarchiso`, `pacstrap`,
+`mksquashfs`, `unsquashfs`, and no passwordless sudo). The build script reports
+that explicitly instead of fabricating an image locally.
 
 ## Published code
 
@@ -43,11 +49,13 @@ incorrectly demanding SunshineOS identity.
 - CI trust-policy audit: `NO_DETECTED_POLICY_FINDINGS` across 6 workflows.
 - Real engine smoke test: `sunshine-live --fixture clean-arch upgrade` returned an
   actual plan with engine rc 0.
+- CI run `44900167130`: build, verification, artifact upload and policy audit all
+  passed; artifact details are in `reports/ISO_ARTIFACT_2026-11-21.md`.
 
 ## Next required action
 
-Push the workflow so the digest-pinned Arch container can run `./iso/build.sh` and
-upload a real image artifact. On a local Arch build host with `archiso`,
-`squashfs-tools` and `xorriso`, the same script re-runs tests, stages the profile,
-calls `mkarchiso`, verifies the ISO with `iso/verify.sh`, and writes
-`iso/out/manifest.sha256`.
+Boot the CI artifact in BIOS and UEFI, install it to a scratch VM/disk, and run
+the live toolkit plus an end-to-end update/migration check there. On a local Arch
+build host with `archiso`, `squashfs-tools`, `mtools` and `xorriso`, the same
+script re-runs tests, stages the profile, calls `mkarchiso`, verifies the ISO with
+`iso/verify.sh`, and writes `iso/out/manifest.sha256`.
