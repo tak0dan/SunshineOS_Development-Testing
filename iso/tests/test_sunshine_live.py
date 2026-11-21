@@ -204,7 +204,7 @@ class ToolkitTests(unittest.TestCase):
             "--root", str(self.root), "--state-root", str(self.base / "state"),
             "--trust-index", str(index), "--trust-policy", str(policy),
             "--trust-keyring", str(keyring),
-            "migrate", "--apply", "--source", "arch",
+            "migrate", "--apply", "--allow-no-snapshot", "--source", "arch",
         ])
         report = sl.cmd_migrate(args, self.runner())
         self.assertEqual(report["status"], "pass")
