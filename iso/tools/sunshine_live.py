@@ -300,7 +300,7 @@ def health(root: Path, runner: Runner | None = None, deep: bool = False) -> dict
     snapshots = snapshot_inventory(root, runner)
     if snapshots.get("available"):
         evidence_list.append(evidence("snapshots", "pass" if snapshots.get("count") else "warn",
-                                      f"snapper pre-snapshots={snapshots.get('count', 0)}",
+                                      f"snapper snapshots={snapshots.get('count', 0)}",
                                       "a pre-existing snapshot improves rollback safety"))
     else:
         evidence_list.append(evidence("snapshots", "warn", snapshots.get("reason", "none detected"),
@@ -320,7 +320,7 @@ def health(root: Path, runner: Runner | None = None, deep: bool = False) -> dict
 def snapshot_inventory(root: Path, runner: Runner | None = None) -> dict[str, Any]:
     if shutil.which("snapper") is None:
         return {"available": False, "count": 0, "reason": "snapper is not installed"}
-    result = run(["snapper", "-c", "root", "list", "-t", "pre", "--columns", "number"], runner)
+    result = run(["snapper", "-c", "root", "list", "-t", "single", "--columns", "number"], runner)
     if result["rc"] != 0:
         return {"available": False, "count": 0,
                 "reason": (result.get("stderr") or "snapper list failed").strip()[:300]}
@@ -413,7 +413,7 @@ def sanity(root: Path, runner: Runner | None = None, *,
     snapshots = snapshot_inventory(root, runner)
     if snapshots.get("available") and snapshots.get("count"):
         result_evidence.append(evidence("snapshot-capability", "pass",
-                                        f"pre-snapshots={snapshots['count']}"))
+                                        f"snapshots={snapshots['count']}"))
     elif require_snapshot:
         result_evidence.append(evidence("snapshot-capability", "fail",
                                         snapshots.get("reason", "no snapshot capability"),
@@ -453,7 +453,7 @@ def sanity(root: Path, runner: Runner | None = None, *,
 
 def snapshot_create(label: str, root: Path, runner: Runner | None = None) -> dict[str, Any]:
     if shutil.which("snapper") is not None:
-        result = run(["snapper", "-c", "root", "create", "-t", "pre", "-d", label], runner)
+        result = run(["snapper", "-c", "root", "create", "-t", "single", "-d", label], runner)
         if result["rc"] == 0:
             numbers = re.findall(r"\b(\d+)\b", out(result))
             return {"ok": True, "type": "snapper", "id": numbers[-1] if numbers else None,

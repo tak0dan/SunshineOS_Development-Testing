@@ -70,7 +70,7 @@ Run from the repository root:
 
 - `python3 -m unittest discover -s evolution-engine/tests -p 'test_*.py'` —
   **325 tests OK**.
-- `python3 -m unittest discover -s iso/tests -p 'test_*.py'` — **29 tests OK**.
+- `python3 -m unittest discover -s iso/tests -p 'test_*.py'` — **30 tests OK**.
 - Focused native rescue tests: 7 engine tests OK.
 - Focused provenance test: `test_CAT_007` verifies all 10 pinned source hashes.
 - `shellcheck iso/build.sh iso/verify.sh iso/tools/sunshine-live iso/profile/sunshine/profiledef.sh` — clean.
@@ -86,6 +86,9 @@ carry `systemd.firstboot=no` or the serial console into the generated boot entri
 The boot configs now declare those parameters literally, so the generated BIOS and
 UEFI entries are self-contained. The same inspection found empty `source_commit`
 metadata in CI; staging now prefers `GITHUB_SHA` and falls back to local git.
+A booted-toolkit run also showed snapper rejecting the old `-t pre` filter; the
+live toolkit now uses the supported `-t single` snapshot type for both listing
+and creation.
 
 These are source and staged-profile checks. The rebuilt image produced by CI after
 this change is recorded separately in `reports/ISO_ARTIFACT_2026-11-21.md`.

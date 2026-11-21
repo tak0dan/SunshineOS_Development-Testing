@@ -187,6 +187,19 @@ class ToolkitTests(unittest.TestCase):
         text = "python: /usr/lib/x.py: No such file or directory\nother: warning: mismatch\n"
         self.assertEqual(sl.parse_missing_packages(text), ["other", "python"])
 
+    def test_snapshot_commands_use_supported_snapper_type(self):
+        available = lambda name: f"/usr/bin/{name}" if name == "snapper" else None
+        with patch.object(sl.shutil, "which", side_effect=available):
+            inventory = sl.snapshot_inventory(self.root, self.runner())
+            created = sl.snapshot_create("test-label", self.root, self.runner())
+        self.assertTrue(inventory["available"])
+        self.assertTrue(created["ok"])
+        self.assertIn(["snapper", "-c", "root", "list", "-t", "single", "--columns", "number"],
+                      self.calls)
+        self.assertIn(["snapper", "-c", "root", "create", "-t", "single", "-d", "test-label"],
+                      self.calls)
+        self.assertFalse(any("pre" in call for call in self.calls))
+
     def test_rescue_is_read_only_and_uses_arch_native_evidence(self):
         (self.root / "boot" / "vmlinuz-linux").write_text("kernel")
         (self.root / "boot" / "initramfs-linux.img").write_text("initramfs")
