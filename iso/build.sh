@@ -48,7 +48,7 @@ if [ "$CHECK_ONLY" -eq 1 ]; then
 fi
 
 missing=()
-for tool in mkarchiso pacman xorriso mksquashfs bash; do
+for tool in mkarchiso pacman xorriso mksquashfs mkfs.fat mmd mcopy bash; do
     command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
 done
 if [ "${#missing[@]}" -gt 0 ]; then

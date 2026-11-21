@@ -34,6 +34,14 @@ class ProfileTests(unittest.TestCase):
             self.assertIn("vmlinuz-linux", text)
             self.assertIn("cow_spacesize=4G", text)
 
+    def test_boot_loader_entry_points_exist(self):
+        loader = PROFILE / "efiboot/loader/loader.conf"
+        self.assertTrue(loader.is_file())
+        self.assertIn("default 01-sunshine-linux.conf", loader.read_text())
+        syslinux = PROFILE / "syslinux/syslinux.cfg"
+        self.assertTrue(syslinux.is_file())
+        self.assertIn("INCLUDE archiso_sys-linux.cfg", syslinux.read_text())
+
     def test_packages_include_build_and_repair_dependencies(self):
         packages = {line.strip() for line in (PROFILE / "packages.x86_64").read_text().splitlines()
                     if line.strip() and not line.startswith("#")}
