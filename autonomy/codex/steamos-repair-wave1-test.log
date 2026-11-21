@@ -1,0 +1,13 @@
+test_T_STEAMOS_REPAIR_001_consistent_devmode_is_assessed (tests.test_steamos_repair.SteamOSRepairAssessmentTests.test_T_STEAMOS_REPAIR_001_consistent_devmode_is_assessed) ... ok
+test_T_STEAMOS_REPAIR_002_readonly_is_not_a_package_repair_target (tests.test_steamos_repair.SteamOSRepairAssessmentTests.test_T_STEAMOS_REPAIR_002_readonly_is_not_a_package_repair_target) ... ok
+test_T_STEAMOS_REPAIR_003_readonly_command_mount_conflict_blocks (tests.test_steamos_repair.SteamOSRepairAssessmentTests.test_T_STEAMOS_REPAIR_003_readonly_command_mount_conflict_blocks) ... ok
+test_T_STEAMOS_REPAIR_004_disabled_devmode_with_marker_is_partial (tests.test_steamos_repair.SteamOSRepairAssessmentTests.test_T_STEAMOS_REPAIR_004_disabled_devmode_with_marker_is_partial) ... ok
+test_T_STEAMOS_REPAIR_005_enabled_devmode_without_marker_blocks (tests.test_steamos_repair.SteamOSRepairAssessmentTests.test_T_STEAMOS_REPAIR_005_enabled_devmode_without_marker_blocks) ... ok
+test_T_STEAMOS_REPAIR_006_incomplete_or_wrongly_typed_evidence_blocks (tests.test_steamos_repair.SteamOSRepairAssessmentTests.test_T_STEAMOS_REPAIR_006_incomplete_or_wrongly_typed_evidence_blocks) ... ok
+test_T_STEAMOS_REPAIR_007_unknown_status_fails_closed (tests.test_steamos_repair.SteamOSRepairAssessmentTests.test_T_STEAMOS_REPAIR_007_unknown_status_fails_closed) ... ok
+test_T_STEAMOS_REPAIR_008_unclassified_writable_state_blocks (tests.test_steamos_repair.SteamOSRepairAssessmentTests.test_T_STEAMOS_REPAIR_008_unclassified_writable_state_blocks) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.001s
+
+OK

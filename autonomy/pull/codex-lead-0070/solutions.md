@@ -1,0 +1,3 @@
+# Solutions
+
+The survey catalogues exact repository and upstream-reported paths in [steamos-repair-wave1.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/steamos-repair-wave1.md). The local research names `/usr/lib/rauc/bootloader-custom-backend.sh`; [Valve issue #1654](https://github.com/ValveSoftware/SteamOS/issues/1654) reports a devmode marker failure at `/usr/lib/steamos/steamos-devmode`. No SteamOS image or source checkout was available to inspect these paths directly. Update-design grounding is documented by [Collabora’s SteamOS 3.6 account](https://www.collabora.com/news-and-blog/news-and-events/steamos-3-6-how-the-steam-deck-atomic-updates-are-improving.html).
