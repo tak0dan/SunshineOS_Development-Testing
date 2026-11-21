@@ -31,6 +31,8 @@ class StagingCapability:
     encrypted: bool = False
     inactive_slot_available: bool = False
     slot_switch_supported: bool = False
+    active_slot: str | None = None
+    inactive_slot: str | None = None
 
     @classmethod
     def from_inventory(cls, inv: Inventory) -> "StagingCapability":
@@ -47,6 +49,8 @@ class StagingCapability:
             encrypted=bool(security.get("encrypted", False)),
             inactive_slot_available=boot.get("inactive_slot_available") is True,
             slot_switch_supported=boot.get("slot_switch_supported") is True,
+            active_slot=_slot_id(boot.get("active_slot")),
+            inactive_slot=_slot_id(boot.get("inactive_slot")),
         )
 
     def staged_root_possible(self) -> bool:
@@ -55,7 +59,18 @@ class StagingCapability:
     def ab_slot_possible(self) -> bool:
         # A slot is usable only when both the destination and an explicit
         # activation mechanism were observed. Never infer A/B from distro name.
-        return self.inactive_slot_available and self.slot_switch_supported
+        return (
+            self.inactive_slot_available and self.slot_switch_supported
+            and self.active_slot is not None and self.inactive_slot is not None
+            and self.active_slot != self.inactive_slot
+        )
+
+
+def _slot_id(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip()
+    return normalized or None
 
 
 @dataclass(frozen=True)
@@ -64,6 +79,8 @@ class StagingAssessment:
     workspace: str
     reasons: tuple[str, ...]
     can_retain_previous: bool
+    active_slot: str | None = None
+    candidate_slot: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -71,6 +88,8 @@ class StagingAssessment:
             "workspace": self.workspace,
             "reasons": list(self.reasons),
             "can_retain_previous": self.can_retain_previous,
+            "active_slot": self.active_slot,
+            "candidate_slot": self.candidate_slot,
         }
 
 
@@ -85,7 +104,10 @@ def assess_staging(
     cap = StagingCapability.from_inventory(inv)
     reasons = [f"filesystem={cap.filesystem}", f"mode={mode}"]
     if forced == "ab_slot" and not cap.ab_slot_possible():
-        raise ValueError("A/B slot staging requires an observed inactive slot and boot switch capability")
+        raise ValueError(
+            "A/B slot staging requires distinct observed active and inactive slot identifiers, "
+            "an available inactive slot, and boot switch capability"
+        )
     if forced == "staged_root" and not cap.staged_root_possible():
         raise ValueError("staged-root strategy is not available on this inventory")
     if forced == "recovery_reconstruction" and not cap.recovery_environment:
@@ -94,6 +116,12 @@ def assess_staging(
         if forced not in STRATEGIES:
             raise ValueError(f"unknown migration strategy {forced!r}")
         reasons.append(f"strategy forced to {forced}")
+        if forced == "ab_slot":
+            reasons.append(f"candidate slot={cap.inactive_slot}; retained active slot={cap.active_slot}")
+            return StagingAssessment(
+                forced, "inactive-slot", tuple(reasons), True,
+                active_slot=cap.active_slot, candidate_slot=cap.inactive_slot,
+            )
         return StagingAssessment(
             forced,
             "staged-root" if cap.staged_root_possible() else "workspace",
@@ -108,7 +136,11 @@ def assess_staging(
         )
     if cap.ab_slot_possible():
         reasons.append("inactive root slot and boot switch capability observed")
-        return StagingAssessment("ab_slot", "inactive-slot", tuple(reasons), True)
+        reasons.append(f"candidate slot={cap.inactive_slot}; retained active slot={cap.active_slot}")
+        return StagingAssessment(
+            "ab_slot", "inactive-slot", tuple(reasons), True,
+            active_slot=cap.active_slot, candidate_slot=cap.inactive_slot,
+        )
     if mode == "bootstrap" and cap.staged_root_possible():
         reasons.append("staged root available for bootstrap")
         return StagingAssessment("staged_root", "staged-root", tuple(reasons), True)
@@ -125,6 +157,10 @@ class WorkflowRun:
     completed: list[str] = field(default_factory=list)
     current: str | None = PHASES[0]
     aborted: bool = False
+
+    def __post_init__(self) -> None:
+        if self.strategy not in STRATEGIES:
+            raise ValueError(f"unknown migration strategy {self.strategy!r}")
 
     def advance(self, phase: str) -> None:
         if self.aborted:
