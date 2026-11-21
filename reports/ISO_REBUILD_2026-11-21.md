@@ -2,12 +2,13 @@
 
 ## Result
 
-A real image artifact was produced by CI at commit `82082b1`:
+A real image artifact was produced by CI at commit
+`3e4257bae9c018e960a843cfb1109402a3b7640b`:
 `sunshineos-2026.11.21-x86_64.iso`, 1,191,051,264 bytes, SHA-256
-`0bd1bd6c8bb692a7b34b8688545fcda7aff7841723e603a38b65dab572ff5e3c`. It passed
-structural verification (boot catalog, kernel, identity, checksum manifest). A
-BIOS/UEFI boot test and installation test have not been performed, so no boot
-claim is made.
+`d1a8e54dc7b00db2295a985a24275e2077386c5ea96488277448fbb936e8d79c`. It passed
+structural verification, artifact-level staged-toolkit checks, and BIOS/UEFI boot
+to an automatic serial root shell. No installation test has been performed, so no
+install claim is made. Details are in `reports/ISO_ARTIFACT_2026-11-21.md`.
 
 The local host still cannot run `mkarchiso` (missing `mkarchiso`, `pacstrap`,
 `mksquashfs`, `unsquashfs`, and no passwordless sudo). The build script reports
@@ -42,20 +43,25 @@ incorrectly demanding SunshineOS identity.
 
 ## Verification actually run
 
-- 29 ISO toolkit tests: OK.
+- 30 ISO toolkit tests: OK.
 - 325 evolution-engine regression tests: OK.
 - `shellcheck` on build scripts, dispatcher, profiledef and generated wrappers: clean.
 - `./iso/build.sh --check`: staged profile validated; no missing files; profiledef syntax OK.
 - CI trust-policy audit: `NO_DETECTED_POLICY_FINDINGS` across 6 workflows.
 - Real engine smoke test: `sunshine-live --fixture clean-arch upgrade` returned an
   actual plan with engine rc 0.
-- CI run `44900167130`: build, verification, artifact upload and policy audit all
+- CI run `44925165261`: build, verification, artifact upload and policy audit all
   passed; artifact details are in `reports/ISO_ARTIFACT_2026-11-21.md`.
+- Booted-toolkit checks on that artifact: BIOS and UEFI reached an automatic serial
+  root shell; all eight `sunshine-*` commands executed. Planning commands and
+  read-only assessments returned their expected statuses; `--require-snapshot`
+  and `rescue` failed closed on the unconfigured live root.
 
-## Next required action
+## Remaining validation
 
-Boot the CI artifact in BIOS and UEFI, install it to a scratch VM/disk, and run
-the live toolkit plus an end-to-end update/migration check there. On a local Arch
-build host with `archiso`, `squashfs-tools`, `mtools` and `xorriso`, the same
-script re-runs tests, stages the profile, calls `mkarchiso`, verifies the ISO with
-`iso/verify.sh`, and writes `iso/out/manifest.sha256`.
+- Install the artifact to a scratch VM/disk.
+- Run the live toolkit and an end-to-end update/migration check on the installed
+  system with configured snapshots, trusted inputs and explicit `--apply`.
+- On a local Arch build host with `archiso`, `squashfs-tools`, `mtools` and
+  `xorriso`, the same script re-runs tests, stages the profile, calls `mkarchiso`,
+  verifies the ISO with `iso/verify.sh`, and writes `iso/out/manifest.sha256`.
