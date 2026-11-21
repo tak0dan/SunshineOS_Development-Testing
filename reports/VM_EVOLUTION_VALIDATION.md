@@ -11,8 +11,9 @@ Evidence: `reports/screenshots/vm-evolution-validation-2026-11-20.png`
 ```sh
 # host
 tar --exclude-vcs --exclude='__pycache__' -czf /tmp/evolution-engine.tar.gz evolution-engine
-VBoxManage guestcontrol SunshineOS-Audit --username sunshine --password 111 \
+VBoxManage guestcontrol SunshineOS-Audit --username sunshine --password "$VBOX_GUEST_PASSWORD" \
   copyto /tmp/evolution-engine.tar.gz /tmp/evolution-engine.tar.gz
+# The password was supplied out-of-band through the environment; no value was recorded.
 ```
 
 Inside the guest, `/tmp/eve` and `/tmp/eve-state` were cleaned, the tarball was

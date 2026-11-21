@@ -1,0 +1,3 @@
+Server = https://mirror.rackspace.com/archlinux/$repo/os/$arch
+Server = https://mirror.pkgbuild.com/$repo/os/$arch
+Server = http://mirror.rackspace.com/archlinux/$repo/os/$arch

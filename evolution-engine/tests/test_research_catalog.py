@@ -83,5 +83,16 @@ class ResearchCatalogTests(unittest.TestCase):
         self.assertTrue(any("unsupported evidence status" in error for error in catalog.validate()))
 
 
+    def test_CAT_007_native_arch_rescue_catalog_is_pinned_and_complete(self) -> None:
+        catalog = ResearchCatalog.load(
+            ROOT / "fixtures/research/native-arch-rescue-wave1.json"
+        )
+        self.assertEqual(catalog.catalog_id, "native-arch-rescue-wave1")
+        self.assertEqual(catalog.commit, "b25032d370b39170e52e6c268bac94195e865448")
+        self.assertEqual(len(catalog.sources), 10)
+        self.assertEqual(catalog.validate(), [])
+        self.assertEqual(catalog.verify_sources(ROOT.parent), [])
+
+
 if __name__ == "__main__":
     unittest.main()

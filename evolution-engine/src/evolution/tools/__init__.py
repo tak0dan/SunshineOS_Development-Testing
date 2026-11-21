@@ -22,6 +22,14 @@ from .service_supervision import (
 )
 from .artix_services import ArtixServicePlan, plan_artix_service
 from .package_health import PackageHealthCheck, PackageHealthReport, assess_package_health
+from .arch_rescue import (
+    ArchRescueFinding,
+    ArchRescueProbe,
+    ArchRescueReport,
+    assess_arch_rescue,
+    assess_pacman_lock,
+    observe_arch_rescue_root,
+)
 
 __all__ = [
     "Seal",
@@ -47,4 +55,10 @@ __all__ = [
     "PackageHealthCheck",
     "PackageHealthReport",
     "assess_package_health",
+    "ArchRescueFinding",
+    "ArchRescueProbe",
+    "ArchRescueReport",
+    "assess_arch_rescue",
+    "assess_pacman_lock",
+    "observe_arch_rescue_root",
 ]

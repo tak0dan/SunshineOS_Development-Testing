@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "captured": "offline clean Arch reference capture; demo evidence only",
+  "probes": {
+    "pacman-db-check": {
+      "name": "pacman-db-check",
+      "command": ["pacman", "-Dk"],
+      "return_code": 0,
+      "output": "checking dependencies...\n",
+      "timed_out": false
+    },
+    "pacman-file-check": {
+      "name": "pacman-file-check",
+      "command": ["pacman", "-Qk"],
+      "return_code": 0,
+      "output": "base: 12 total files, 0 missing files\nlinux: 240 total files, 0 missing files\n",
+      "timed_out": false
+    },
+    "systemd-unit-verify": {
+      "name": "systemd-unit-verify",
+      "command": ["systemd-analyze", "verify", "default.target"],
+      "return_code": 0,
+      "output": "",
+      "timed_out": false
+    }
+  },
+  "observations": {
+    "boot-artifacts": {
+      "kernel_present": true,
+      "initramfs_present": true,
+      "bootloader_config_present": true,
+      "boot_entries_present": true
+    },
+    "lock_state": "missing",
+    "snapshot_available": true,
+    "pending_reboot": false
+  }
+}

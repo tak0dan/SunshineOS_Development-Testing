@@ -23,7 +23,7 @@ Code changes are published to their own repositories:
 Run from `evolution-engine/`:
 
 ```
-python3 -m unittest discover -s tests -v   # 56 tests
+python3 -m unittest discover -s tests -v   # 317 tests
 python3 src/engine.py --root fixtures/clean-arch --plan
 python3 src/engine.py --root / --check
 python3 src/engine.py --root / --apply --dry-run \

@@ -59,6 +59,7 @@ git -C "$R" log -20 --format='%h %s'                       # recent published wo
 | Path | What it is |
 |---|---|
 | `evolution-engine/` | **Actual migration code.** `src/`, `src/evolution/tools/` (services, snapshots, sealed state, transaction log, channels), `tests/` |
+| `iso/` | **ISO rebuild toolkit and archiso profile.** `README.md`, `build.sh`, `verify.sh`, `tools/sunshine_live.py`, `tools/stage_profile.py`, `profile/sunshine/`, `tests/` |
 | `openclaw/` | Agent framework: `backends.py` (OpenRouter, Ollama, Codex, shell), `cli.py`, `core.py`, `tests/` |
 | `reports/` | Mandate, architecture decisions (AD-01..AD-30), audits, orders, test plans, VM validation |
 | `reports/USER_MIGRATION_MANDATE_2026-11-21.md` | The user's full standing instructions — read first |
@@ -74,6 +75,8 @@ git -C "$R" log -20 --format='%h %s'                       # recent published wo
 | `autonomy/TEAM_CHAT.md` | Chat-style communication + contribution audit |
 | `INFRASTRUCTURE_INDEX.md` | This file |
 | `autonomy/CODEX_BRIEF.md` | Senior developer onboarding brief and standing rules |
+| `reports/NIGHTLY_PUBLISH_2026-11-21.md` | Verified nightly publication record and 317-test result |
+| `iso/README.md` | Live command reference, safety model, build requirements and host limitation |
 
 ---
 

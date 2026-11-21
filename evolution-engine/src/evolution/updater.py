@@ -8,12 +8,15 @@ failure runs on-failure hooks and restores the checkpoint.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
+from .baseline import BASELINE_ID
 from .hooks import HookOutcome, HookRunner
 from .journal_state import MigrationJournal
+from .recovery import RECOVERY_BASELINE_ID, recovery_path
 from .release import content_digest
 from .scheme import Scheme
 
@@ -22,6 +25,113 @@ VerifyFn = Callable[[], tuple[bool, str]]
 CheckpointFn = Callable[[], str]
 CheckpointVerifyFn = Callable[[str], tuple[bool, str]]
 RestoreFn = Callable[[str], tuple[bool, str]]
+
+MAJOR_UPDATE_SCOPE = ("base", "kernel", "packages")
+_YEAR = re.compile(r"(?:19|20)\d{2}")
+_RELEASE_ALIASES = {
+    "b-1": RECOVERY_BASELINE_ID,
+    "b-1-2015": RECOVERY_BASELINE_ID,
+    "arch-2015": RECOVERY_BASELINE_ID,
+    "archlinux-2015": RECOVERY_BASELINE_ID,
+    "b0": BASELINE_ID,
+    "b0-2026": BASELINE_ID,
+    "b0-arch-2026": BASELINE_ID,
+    "vanilla-arch": BASELINE_ID,
+}
+
+
+def _canonical_release(value: Any, baseline_epoch: str) -> str:
+    text = str(value or "").strip().lower()
+    if not text:
+        return ""
+    if text in _RELEASE_ALIASES:
+        return _RELEASE_ALIASES[text]
+    if re.fullmatch(r"e\d+", text):
+        return str(baseline_epoch or BASELINE_ID).strip().lower()
+    return text
+
+
+def _major_epoch(value: Any, baseline_epoch: str) -> str:
+    """Return the OS major epoch without treating evolution indices as majors."""
+    canonical = _canonical_release(value, baseline_epoch)
+    match = _YEAR.search(canonical)
+    return match.group() if match else canonical
+
+
+@dataclass(frozen=True)
+class AutomaticMigrationPlan:
+    """Read-only lineage plan for a major release transition.
+
+    An automatic migration is part of every ordinary upgrade: it records what
+    convergence must do, never performs it. Mutation stays behind the existing
+    explicit apply/trust gates, and no lock is ever deleted by this plan.
+    """
+
+    required: bool
+    reason: str
+    lineage: tuple[str, ...] = ()
+    update_scope: tuple[str, ...] = ()
+    recovery_inputs: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "required": self.required,
+            "reason": self.reason,
+            "lineage": list(self.lineage),
+            "update_scope": list(self.update_scope),
+            "recovery_inputs": self.recovery_inputs,
+            "mutation_authorized": False,
+            "commands": [],
+            "lock_deletion": "never",
+        }
+
+
+def plan_automatic_migration(
+    source: Any,
+    target: Any,
+    *,
+    baseline_epoch: str = BASELINE_ID,
+    current_state: Mapping[str, Any] | None = None,
+) -> AutomaticMigrationPlan:
+    """Plan the B-1 -> M -> B0 -> target lineage for a major release jump.
+
+    Same-major upgrades return ``required=False`` with no lineage. Evidence or
+    context is recorded, not acted on; the caller's explicit apply gate alone
+    may authorize mutation. Broken upgrades reuse the B-1 base plus current
+    state merged over the B0 baseline, then continue evolutionary steps.
+    """
+    baseline = str(baseline_epoch or BASELINE_ID)
+    source_epoch = _major_epoch(source, baseline)
+    target_epoch = _major_epoch(target, baseline)
+    if not source_epoch or not target_epoch or source_epoch == target_epoch:
+        return AutomaticMigrationPlan(
+            False,
+            "same major release; ordinary package and convergence steps apply",
+        )
+
+    canonical_source = _canonical_release(source, baseline)
+    old_base = canonical_source == RECOVERY_BASELINE_ID
+    bridge_path = recovery_path(
+        RECOVERY_BASELINE_ID if old_base else BASELINE_ID, str(target),
+    )
+    current = dict(current_state or {})
+    recovery_inputs = {
+        "base": RECOVERY_BASELINE_ID,
+        "current_state": current,
+        "merge_with": BASELINE_ID,
+        "merge_policy": "current-state-over-B0-baseline; preserve user data",
+        "lineage": list(bridge_path),
+        "continue_with": "evolutionary upgrade steps after reconstructed baseline validates",
+        "mutation_authorized": False,
+        "commands": [],
+    }
+    return AutomaticMigrationPlan(
+        True,
+        f"major release transition {source_epoch} -> {target_epoch}",
+        tuple(bridge_path),
+        MAJOR_UPDATE_SCOPE,
+        recovery_inputs,
+    )
 
 
 @dataclass
@@ -36,6 +146,10 @@ class UpgradeReport:
     error: str = ""
     rolled_back: bool = False
     journal_id: str = ""
+    migration_required: bool = False
+    migration_lineage: tuple[str, ...] = ()
+    migration_plan: dict[str, Any] = field(default_factory=dict)
+    recovery_inputs: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -49,6 +163,10 @@ class UpgradeReport:
             "error": self.error,
             "rolled_back": self.rolled_back,
             "journal_id": self.journal_id,
+            "migration_required": self.migration_required,
+            "migration_lineage": list(self.migration_lineage),
+            "migration_plan": self.migration_plan,
+            "recovery_inputs": self.recovery_inputs,
         }
 
 
@@ -83,6 +201,21 @@ class EvolutionUpdater:
         )
         return [str(m.version) for m in milestones]
 
+    def _release_label(self, value: Any) -> str:
+        """Resolve a milestone to its release label, keeping explicit anchors."""
+        text = str(value or "").strip()
+        if (_YEAR.search(text) or re.fullmatch(r"e\d+", text, re.IGNORECASE)
+                or text.lower() in _RELEASE_ALIASES):
+            return text
+        try:
+            version = self.scheme.registry.resolve_version(text)
+        except ValueError:
+            return text
+        milestone = self.scheme.registry.get(version)
+        if milestone is not None and milestone.target_release:
+            return milestone.target_release
+        return str(version)
+
     def _check_execution_preconditions(self, milestones: list[Any]) -> None:
         """Validate non-mutating requirements before a checkpoint is taken."""
 
@@ -102,14 +235,38 @@ class EvolutionUpdater:
                 elif not hook.adapter:
                     raise RuntimeError(f"{milestone.version}/{hook.id}: hook has no command or adapter")
 
+    @staticmethod
+    def _attach_migration(report: UpgradeReport, migration: AutomaticMigrationPlan) -> None:
+        report.migration_required = migration.required
+        report.migration_lineage = migration.lineage
+        report.migration_plan = migration.to_dict()
+        report.recovery_inputs = migration.recovery_inputs
+        if migration.required:
+            report.steps.append({
+                "phase": "AutomaticMigration",
+                "detail": migration.reason,
+                "lineage": list(migration.lineage),
+                "update_scope": list(migration.update_scope),
+                "mutation_authorized": False,
+            })
+
     def upgrade(
         self, source: str, target: str | None = None, *, dry_run: bool = False
     ) -> UpgradeReport:
         target_version = target if target is not None else self.scheme.registry.current
+        migration = plan_automatic_migration(
+            self._release_label(source),
+            self._release_label(target_version),
+            baseline_epoch=self.scheme.baseline_epoch,
+            current_state={"source": str(source), "target": str(target_version)},
+        )
         try:
             milestones = self.scheme.registry.chain(source, target_version)
         except ValueError as exc:
-            return UpgradeReport(source, str(target_version), (), False, error=str(exc))
+            report = UpgradeReport(source, str(target_version), (), False, error=str(exc))
+            report.steps.append({"phase": "Discover", "detail": f"source={source}"})
+            self._attach_migration(report, migration)
+            return report
 
         chain = [str(m.version) for m in milestones]
         # Full digest: a truncated identifier becomes a collision risk across
@@ -127,6 +284,16 @@ class EvolutionUpdater:
             ok=True, dry_run=dry_run, journal_id=journal_id,
         )
         report.steps.append({"phase": "Discover", "detail": f"source={source}"})
+        migration = plan_automatic_migration(
+            self._release_label(source),
+            self._release_label(target_version),
+            baseline_epoch=self.scheme.baseline_epoch,
+            current_state={
+                "source": str(source), "target": str(target_version),
+                "chain": chain, "journal_id": journal_id,
+            },
+        )
+        self._attach_migration(report, migration)
         if dry_run:
             try:
                 self._check_execution_preconditions(milestones)
@@ -214,6 +381,14 @@ class EvolutionUpdater:
         except Exception as exc:
             report.ok = False
             report.error = str(exc)
+            if migration.required:
+                report.steps.append({
+                    "phase": "RecoveryPlan",
+                    "detail": f"rebuild from {RECOVERY_BASELINE_ID} plus current state "
+                              f"merged with {BASELINE_ID}",
+                    "lineage": list(migration.lineage),
+                    "mutation_authorized": False,
+                })
             try:
                 journal.transition("Failed", str(exc))
             except ValueError:

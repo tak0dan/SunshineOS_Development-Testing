@@ -1,0 +1,8 @@
+#!/bin/sh
+# SunshineOS live maintenance dispatcher.
+set -eu
+SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+if [ -f "$SCRIPT_DIR/sunshine_live.py" ]; then
+    exec /usr/bin/python3 "$SCRIPT_DIR/sunshine_live.py" "$@"
+fi
+exec /usr/bin/python3 /usr/local/lib/sunshine/sunshine_live.py "$@"

@@ -1,0 +1,13 @@
+[Unit]
+Description=SunshineOS read-only startup assessment
+ConditionKernelCommandLine=sunshine.assess
+After=local-fs.target
+Wants=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/sunshine-report --out /var/log/sunshine/startup-report.json
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

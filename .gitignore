@@ -6,3 +6,6 @@ sunshine-tools/
 __pycache__/
 *.py[cod]
 .openclaw/
+iso/.staged-profile/
+iso/work/
+iso/out/
