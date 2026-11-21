@@ -1,0 +1,8 @@
+Verification method: SHA-256 of each catalogued relative path in /home/tak_0/.local/state/sunshine-orchestrator/iso/repos/omarchy against evolution-engine/fixtures/research/omarchy-update-recovery-wave1.json.
+OK docs/update-process.md sha256=1f6d877212be4c4c23a7671bb4a33f4ba6b8a7b7f7c9af4025a09fee0c0fbeca
+OK bin/omarchy-update sha256=d59539590ff3b20282c1fb6b05a8f506ec931d098a358282f1521a41131634b3
+OK bin/omarchy-migrate sha256=0c14cb7853174d5289172496e22c1bd444b20c00c1aefd589e1faa3ae6941abe
+OK bin/omarchy-update-pacman-guard sha256=aa56714de498170cf9460923dc1047dd89dcc3b08e21809ad2d764ebd1553fed
+OK manual/30-updates.md sha256=4c57a12f13d23407d1bae8225e8dc5fb0f0e82985373a4478cf23a17f06a3af8
+OK manual/47-system-snapshots.md sha256=63e0a13be0f3d51e352eeeb15b88b0e13b5e06cc450743b988f4b822f68abf08
+Verified 6 files at commit e4635a4eea887d5c8dbd70427386f570c37a2a61
