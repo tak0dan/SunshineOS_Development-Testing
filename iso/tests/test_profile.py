@@ -44,6 +44,26 @@ class ProfileTests(unittest.TestCase):
             self.assertIn("systemd.firstboot=no", text, path)
             self.assertIn("console=ttyS0,115200n8", text, path)
 
+    def test_gui_console_autologin_is_configured(self):
+        dropin = PROFILE / "airootfs/etc/systemd/system/getty@tty1.service.d/10-autologin.conf"
+        self.assertTrue(dropin.is_file())
+        self.assertIn("--autologin root", dropin.read_text())
+        permissions = (PROFILE / "profiledef.sh").read_text()
+        self.assertIn('/etc/systemd/system/getty@tty1.service.d/10-autologin.conf', permissions)
+
+    def test_live_console_identity_is_sunshineos(self):
+        issue = PROFILE / "airootfs/etc/issue"
+        self.assertTrue(issue.is_file())
+        text = issue.read_text()
+        self.assertIn("SunshineOS", text)
+        self.assertNotIn("Arch Linux", text)
+        hostname = PROFILE / "airootfs/etc/hostname"
+        self.assertTrue(hostname.is_file())
+        self.assertEqual(hostname.read_text().strip(), "sunshineos")
+        permissions = (PROFILE / "profiledef.sh").read_text()
+        self.assertIn('["/etc/issue"]="0:0:644"', permissions)
+        self.assertIn('["/etc/hostname"]="0:0:644"', permissions)
+
     def test_pacman_configurations_declare_architecture(self):
         for path in (PROFILE / "pacman.conf", PROFILE / "airootfs/etc/pacman.conf"):
             self.assertTrue(path.is_file(), path)

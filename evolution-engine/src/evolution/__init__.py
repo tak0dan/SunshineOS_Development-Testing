@@ -18,7 +18,12 @@ from .milestones import (
 from .scheme import DEFAULT_SCHEME_PATH, load_scheme
 from .repository import MilestoneRepository
 from .hooks import HookOutcome, HookPhase, run_hooks
-from .updater import EvolutionUpdater, UpgradeReport
+from .updater import (
+    AutomaticMigrationPlan,
+    EvolutionUpdater,
+    UpgradeReport,
+    plan_automatic_migration,
+)
 from .tools import (
     ChannelDecision,
     ChannelPolicy,
@@ -50,6 +55,8 @@ __all__ = [
     "MilestoneRepository",
     "EvolutionUpdater",
     "UpgradeReport",
+    "AutomaticMigrationPlan",
+    "plan_automatic_migration",
     "DEFAULT_SCHEME_PATH",
     "load_scheme",
     "run_hooks",

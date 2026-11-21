@@ -543,14 +543,23 @@ def guarded_apply(args: argparse.Namespace, runner: Runner | None, *, expected_o
 
 
 def cmd_update(args: argparse.Namespace, runner: Runner | None = None) -> dict[str, Any]:
+    """Update base, kernel and packages with evolution migration included.
+
+    Migration is not a separate step for Arch-family systems. The evolution
+    engine resolves the lineage (B-1 Arch 2015 -> M -> B0 Arch 2026 -> target)
+    inside this operation when a major release is detected. The standalone
+    ``migrate`` command is reserved for edge cases such as cross-family source
+    states discovered from the rescue environment.
+    """
     root = Path(args.root or "/")
     data: dict[str, Any] = {"command": "update", "generated": utc(), "root": str(root),
-                            "apply": bool(args.apply)}
+                            "apply": bool(args.apply), "migration_mode": "automatic"}
     if not args.apply:
         check = run(["pacman", "-Qu"], runner, timeout=180)
+        evolution = run_engine(args, "plan", runner)
         data.update({"status": "preview", "upgrade_list": out(check),
                      "rc": check["rc"], "stdout": check.get("stdout", "")[:20000],
-                     "stderr": check.get("stderr", "")[:4000],
+                     "stderr": check.get("stderr", "")[:4000], "evolution": evolution,
                      "remedy": "pass --apply to execute after sanity and snapshot gates"})
         return data
     args.command_name = "update"
@@ -560,11 +569,13 @@ def cmd_update(args: argparse.Namespace, runner: Runner | None = None) -> dict[s
         data["status"] = "blocked"
         return data
     action = run(["pacman", "-Syu", "--noconfirm", "--needed"], runner, timeout=1800)
+    evolution = run_engine(args, "apply", runner) if action["rc"] == 0 else None
     post = health(root, runner, deep=False)
-    data.update({"status": "pass" if action["rc"] == 0 else "fail", "action": action,
-                 "post_health_status": post["status"]})
+    ok = action["rc"] == 0 and evolution is not None and evolution["ok"]
+    data.update({"status": "pass" if ok else "fail", "action": action,
+                 "evolution": evolution, "post_health_status": post["status"]})
     journal({"command": "update", "apply": True, "snapshot": snap, "action": action,
-             "status": data["status"]})
+             "evolution": evolution, "status": data["status"]})
     return data
 
 
@@ -987,9 +998,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_sanity)
 
     for name, func, help_text in (
-        ("update", cmd_update, "package index and package update"),
+        ("update", cmd_update, "base/kernel/package update with automatic evolution migration"),
         ("upgrade", cmd_upgrade, "target-state convergence via evolution engine"),
-        ("migrate", cmd_migrate, "source discovery and migration planning/application"),
+        ("migrate", cmd_migrate, "edge-case live migration for unsupported source families"),
         ("repair", cmd_repair, "assess and, with explicit flags, repair"),
         ("report", cmd_report, "combined health, sanity and repair assessment"),
     ):

@@ -114,6 +114,26 @@ class ToolkitTests(unittest.TestCase):
         self.assertEqual(report["status"], "preview")
         self.assertFalse(any("-Syu" in call for call in self.calls))
 
+    def test_update_preview_includes_automatic_evolution_plan(self):
+        args = sl.build_parser().parse_args(["--root", str(self.root), "update"])
+        report = sl.cmd_update(args, self.runner())
+        self.assertEqual(report["status"], "preview")
+        self.assertEqual(report["migration_mode"], "automatic")
+        self.assertIn("evolution", report)
+        plans = [call for call in self.calls
+                 if any("engine.py" in token for token in call) and "--plan" in call]
+        self.assertTrue(plans)
+
+    def test_update_apply_fails_closed_when_evolution_fails(self):
+        args = sl.build_parser().parse_args([
+            "--root", str(self.root), "update", "--apply", "--allow-no-snapshot",
+        ])
+        failing = self.runner({"--apply": result([], rc=1, stderr="migration blocked")})
+        report = sl.cmd_update(args, failing)
+        self.assertEqual(report["status"], "fail")
+        self.assertFalse(report["evolution"]["ok"])
+        self.assertTrue(any("-Syu" in call for call in self.calls))
+
     def test_update_apply_is_blocked_without_snapshot(self):
         args = sl.build_parser().parse_args(["--root", str(self.root), "update", "--apply"])
         failing = self.runner({

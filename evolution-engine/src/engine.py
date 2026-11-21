@@ -11,6 +11,7 @@ The CLI mirrors the intended production interface:
     sunshine-evolve --verify         # validate current capabilities
     sunshine-evolve --repair         # replan + resume from journal
     sunshine-evolve --history        # show journal
+    sunshine-evolve --rescue         # read-only Arch rescue assessment
     sunshine-evolve --fixture clean-arch --plan
                                      # offline, host-independent demo mode
 
@@ -26,7 +27,7 @@ import subprocess
 import sys
 from dataclasses import asdict
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -35,6 +36,7 @@ from src.core import ObservedState, Plan  # noqa: E402
 from src.components import load_contracts, validate_contract_set  # noqa: E402
 from src.discovery import discover  # noqa: E402
 from src.fixtures import (  # noqa: E402
+    FIXTURES_ROOT,
     applied_fixture,
     fixture_executor,
     fixture_root,
@@ -58,6 +60,8 @@ from src.validation import validate_system, ValidationReport  # noqa: E402
 
 DEFAULT_ROOT = "/"
 STATE_ROOT = Path("/var/lib/sunshine")
+RESCUE_FIXTURE_EVIDENCE = FIXTURES_ROOT / "rescue" / "captured-clean.json"
+RESCUE_OBSERVATIONS = ("boot-artifacts", "lock_state", "snapshot_available", "pending_reboot")
 
 
 def _json(obj) -> str:
@@ -308,6 +312,148 @@ def cmd_health(execute_argv=None) -> int:
     return 0 if report.healthy else 1
 
 
+def _rescue_evidence_path(evidence_path: str | None, fixture_name: str | None):
+    """Resolve captured rescue evidence to a file, without touching the host."""
+    if evidence_path:
+        return Path(evidence_path), f"file:{evidence_path}"
+    if fixture_name:
+        specific = FIXTURES_ROOT / "rescue" / f"{fixture_name}.json"
+        path = specific if specific.is_file() else RESCUE_FIXTURE_EVIDENCE
+        return path, f"fixture:{fixture_name}"
+    return None, "none"
+
+
+def _rescue_lock_path(value: Any, base: Path) -> Path:
+    """Resolve a captured lock path; relative paths stay inside the evidence set."""
+    if not isinstance(value, str) or not value:
+        raise ValueError("lock_path and proc_root must be non-empty strings")
+    path = Path(value)
+    return path if path.is_absolute() else base / path
+
+
+def _load_rescue_evidence(evidence_path: str | None, fixture_name: str | None):
+    """Load captured probes and observations; never synthesize a clean result."""
+    from src.evolution.tools.arch_rescue import ArchRescueProbe
+
+    path, source = _rescue_evidence_path(evidence_path, fixture_name)
+    payload: dict[str, Any] = {}
+    errors: list[str] = []
+    if path is None:
+        errors.append("no captured rescue evidence supplied")
+    else:
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(loaded, dict):
+                raise ValueError("top level must be a JSON object")
+            payload = loaded
+        except (OSError, ValueError, TypeError) as exc:
+            errors.append(f"cannot read captured rescue evidence: {exc}")
+
+    probes = {}
+    raw_probes = payload.get("probes", {})
+    if isinstance(raw_probes, dict):
+        for key, item in raw_probes.items():
+            name = str(key)
+            if not isinstance(item, dict):
+                errors.append(f"invalid captured probe '{name}': expected an object")
+                continue
+            code = item.get("return_code")
+            command = item.get("command", ())
+            if code is not None and (isinstance(code, bool) or not isinstance(code, int)):
+                errors.append(f"invalid captured probe '{name}': return_code must be an integer")
+                continue
+            if not isinstance(command, (list, tuple)):
+                errors.append(f"invalid captured probe '{name}': command must be a list")
+                continue
+            probes[name] = ArchRescueProbe(
+                name=str(item.get("name", name)),
+                command=tuple(str(part) for part in command),
+                return_code=code,
+                output=str(item.get("output", "")),
+                timed_out=bool(item.get("timed_out", False)),
+            )
+    elif raw_probes:
+        errors.append("'probes' must be a JSON object")
+
+    observed: dict[str, Any] = {}
+    raw_observed = payload.get("observations", payload.get("observed", {}))
+    if isinstance(raw_observed, dict):
+        observed.update({str(key): value for key, value in raw_observed.items()})
+    elif raw_observed:
+        errors.append("'observations' must be a JSON object")
+    for key in RESCUE_OBSERVATIONS:
+        if key in payload and key not in observed:
+            observed[key] = payload[key]
+    return path, source, payload, probes, observed, errors
+
+
+def cmd_rescue(evidence_path: str | None = None, *, fixture_name: str | None = None,
+               root: str | None = None) -> int:
+    """Assess captured Arch rescue evidence read-only; never run a command."""
+    from src.evolution.tools.arch_rescue import (
+        assess_arch_rescue,
+        assess_pacman_lock,
+        observe_arch_rescue_root,
+    )
+
+    path, source, payload, probes, observed, errors = _load_rescue_evidence(
+        evidence_path, fixture_name,
+    )
+    loaded = bool(payload)
+    if fixture_name and root is None:
+        root = str(fixture_root(fixture_name))
+    root_observation = None
+    if loaded and (fixture_name or root):
+        # Fixture trees and explicit roots are captures, so observation is deterministic.
+        root_observation = observe_arch_rescue_root(root or DEFAULT_ROOT)
+        observed.setdefault("boot-artifacts", root_observation)
+
+    lock_detail = None
+    if loaded:
+        captured_lock = payload.get("lock")
+        base = path.parent if path is not None else FIXTURES_ROOT / "rescue"
+        if isinstance(captured_lock, dict) and (
+            "lock_path" in captured_lock or "proc_root" in captured_lock
+        ):
+            try:
+                lock_path = _rescue_lock_path(captured_lock.get("lock_path"), base)
+                proc_root = _rescue_lock_path(captured_lock.get("proc_root"), base)
+            except ValueError as exc:
+                errors.append(f"invalid captured lock paths: {exc}")
+            else:
+                try:
+                    lock_detail = assess_pacman_lock(lock_path, proc_root)
+                except OSError as exc:
+                    errors.append(f"cannot assess captured lock: {exc}")
+        elif isinstance(captured_lock, dict) and "state" in captured_lock:
+            observed.setdefault("lock_state", captured_lock["state"])
+        elif fixture_name:
+            fixture_path = Path(root or DEFAULT_ROOT)
+            try:
+                lock_detail = assess_pacman_lock(
+                    fixture_path / "var/lib/pacman/db.lck", fixture_path / "proc",
+                )
+            except OSError as exc:
+                errors.append(f"cannot assess fixture lock: {exc}")
+        if lock_detail is not None:
+            observed.setdefault("lock_state", lock_detail.state)
+
+    report = assess_arch_rescue(probes, observed=observed)
+    result = {
+        "mode": "rescue",
+        "source": source,
+        "evidence_loaded": loaded,
+        "errors": errors,
+        "observed": observed,
+        "root_observation": root_observation,
+        "lock": lock_detail.to_dict() if lock_detail is not None else None,
+        "policy": "read-only; captured evidence never authorizes lock deletion or repair",
+    }
+    result.update(report.to_dict())
+    print(_json(result))
+    return 0 if report.healthy else 1
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     ap = argparse.ArgumentParser(prog="sunshine-evolve", description="Sunshine Evolution Engine")
     ap.add_argument("--root", default=None, help="filesystem root for discovery (testing)")
@@ -323,6 +469,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     g.add_argument("--history", action="store_true")
     g.add_argument("--health", action="store_true",
                    help="read-only pacman database and installed-file health assessment")
+    g.add_argument("--rescue", action="store_true",
+                   help="read-only Arch rescue assessment from captured evidence")
+    ap.add_argument("--rescue-evidence", "--evidence", dest="rescue_evidence", metavar="PATH",
+                    help="JSON file of captured Arch rescue probes and observations")
     ap.add_argument("--resume", action="store_true", help="with --apply: resume from journal after re-discovery")
     ap.add_argument("--dry-run", action="store_true", help="with --apply: simulate without changes")
     ap.add_argument("--decide", action="append", default=[], metavar="ID=VALUE",
@@ -370,12 +520,13 @@ def main(argv: Optional[list[str]] = None) -> int:
             print(str(exc), file=sys.stderr)
             return 2
 
+    read_only = a.health or a.rescue
     try:
-        trust = None if a.health else _stage_a(a, execute)
+        trust = None if read_only else _stage_a(a, execute)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"Stage A configuration error: {exc}", file=sys.stderr)
         return 3
-    if trust is None and not a.fixture and not a.health:
+    if trust is None and not a.fixture and not read_only:
         print(
             "Stage A trust verification is mandatory outside offline fixture mode; "
             "provide --trust-index or a verified --trust-report/--trust-receipt pair",
@@ -387,7 +538,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 3
 
     try:
-        adapters = None if a.health else _adapter_registry(a, trust)
+        adapters = None if read_only else _adapter_registry(a, trust)
     except (OSError, ValueError) as exc:
         print(f"Adapter configuration error: {exc}", file=sys.stderr)
         return 3
@@ -397,6 +548,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     if a.health:
         health_executor = (lambda argv: execute(shlex.join(argv))) if execute else None
         return cmd_health(health_executor)
+    if a.rescue:
+        return cmd_rescue(a.rescue_evidence, fixture_name=a.fixture, root=a.root)
     if a.check:
         return cmd_check(root, execute, trust)
     if a.plan:

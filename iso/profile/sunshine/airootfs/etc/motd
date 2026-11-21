@@ -6,11 +6,13 @@ Read-only first:
   sunshine-rescue
   sunshine-report
 
-Mutating operations always require --apply and a rollback checkpoint:
-  sunshine-update --apply
-  sunshine-upgrade --apply --trust-index ... --trust-policy ... --trust-keyring ...
+Automatic Arch-family evolution (base, kernel, packages and migration):
+  sunshine-update            preview (read-only)
+  sunshine-update --apply    execute after sanity and snapshot gates
+
+Edge cases only (non-Arch source, rescue from the live environment):
+  sunshine-rescue            read-only Arch-native assessment
   sunshine-migrate --apply --source arch --trust-index ... --trust-policy ... --trust-keyring ...
-  sunshine-repair --apply --reinstall-missing
 
 Every command writes a JSON report under /var/log/sunshine/reports
 and journals decisions in /var/log/sunshine/journal.jsonl.
