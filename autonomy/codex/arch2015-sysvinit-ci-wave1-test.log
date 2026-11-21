@@ -1,0 +1,56 @@
+test_detected_sysv_source_is_blocked_from_ordinary_transformation (tests.test_arch2015_sysvinit.Arch2015SysvinitTests.test_detected_sysv_source_is_blocked_from_ordinary_transformation)
+T-ARCH2015-SYSV-005: discovered SysV cannot enter Arch transformer. ... ok
+test_sysvinit_remnants_do_not_override_named_pid1 (tests.test_arch2015_sysvinit.Arch2015SysvinitTests.test_sysvinit_remnants_do_not_override_named_pid1)
+T-ARCH2015-SYSV-004: runtime PID 1 outranks installed SysV remnants. ... ok
+test_duplicate_services_are_rejected (tests.test_sysvinit_inventory.SysVInitInventoryTests.test_duplicate_services_are_rejected)
+T-ARCH2015-SYSV-009: duplicated entries are not silently collapsed. ... ok
+test_literal_daemons_preserve_enable_disable_and_background (tests.test_sysvinit_inventory.SysVInitInventoryTests.test_literal_daemons_preserve_enable_disable_and_background)
+T-ARCH2015-SYSV-006: rc.conf markers survive normalization. ... ok
+test_missing_or_ambiguous_assignment_is_incomplete (tests.test_sysvinit_inventory.SysVInitInventoryTests.test_missing_or_ambiguous_assignment_is_incomplete)
+T-ARCH2015-SYSV-008: absent/duplicate historical state fails closed. ... ok
+test_shell_expansion_is_rejected_without_execution (tests.test_sysvinit_inventory.SysVInitInventoryTests.test_shell_expansion_is_rejected_without_execution)
+T-ARCH2015-SYSV-007: dynamic rc.conf cannot become trusted intent. ... ok
+test_incomplete_inventory_blocks_all_probes (tests.test_sysvinit_repair.SysVInitRepairTests.test_incomplete_inventory_blocks_all_probes)
+T-ARCH2015-SYSV-011: ambiguous source cannot drive repair assessment. ... ok
+test_required_missing_script_is_reported_without_commands (tests.test_sysvinit_repair.SysVInitRepairTests.test_required_missing_script_is_reported_without_commands)
+T-ARCH2015-SYSV-010: missing service is actionable but never invoked. ... ok
+test_service_symlink_outside_root_is_blocked (tests.test_sysvinit_repair.SysVInitRepairTests.test_service_symlink_outside_root_is_blocked)
+T-ARCH2015-SYSV-012: script evidence cannot escape the observed root. ... ok
+test_arch_2015_sysvinit_pid1_is_identified_from_runtime_and_marker (tests.test_discovery.DiscoveryTests.test_arch_2015_sysvinit_pid1_is_identified_from_runtime_and_marker)
+T-ARCH2015-SYSV-001: identify a legacy SysV source without host access. ... ok
+test_clean_arch_system (tests.test_discovery.DiscoveryTests.test_clean_arch_system)
+A pristine Arch system is discovered without any Sunshine assumption. ... ok
+test_grub_package_alone_never_exceeds_medium (tests.test_discovery.DiscoveryTests.test_grub_package_alone_never_exceeds_medium)
+A GRUB package listing cannot claim an active firmware boot entry. ... ok
+test_individual_passes_accept_root_and_execute (tests.test_discovery.DiscoveryTests.test_individual_passes_accept_root_and_execute)
+Each pass can be called independently with the same test doubles. ... ok
+test_missing_user_database_is_low_confidence_not_a_crash (tests.test_discovery.DiscoveryTests.test_missing_user_database_is_low_confidence_not_a_crash) ... ok
+test_obarun_66_s6_is_detected_without_confusing_manager_and_init (tests.test_discovery.DiscoveryTests.test_obarun_66_s6_is_detected_without_confusing_manager_and_init)
+T-OBARUN-66-001: identify 66 and s6 from rooted, independent evidence. ... ok
+test_old_sunshine_partial_installation (tests.test_discovery.DiscoveryTests.test_old_sunshine_partial_installation)
+Partial Sunshine markers are detected, including HIGH boot confidence. ... ok
+test_stale_inittab_does_not_override_running_systemd (tests.test_discovery.DiscoveryTests.test_stale_inittab_does_not_override_running_systemd)
+T-ARCH2015-SYSV-002: a remnant config is not runtime init evidence. ... ok
+test_users_are_discovered_without_secret_data (tests.test_discovery.DiscoveryTests.test_users_are_discovered_without_secret_data)
+Stage B preserves user/group facts but never records password hashes. ... ok
+test_arch_2015_sysvinit_requires_recovery_bridge (tests.test_compatibility.CompatibilityTests.test_arch_2015_sysvinit_requires_recovery_bridge)
+T-ARCH2015-SYSV-003: never run the ordinary transformer on SysV. ... ok
+test_broken_database_is_blocked (tests.test_compatibility.CompatibilityTests.test_broken_database_is_blocked) ... ok
+test_clean_arch_is_official (tests.test_compatibility.CompatibilityTests.test_clean_arch_is_official) ... ok
+test_foreign_packages_make_conditional_not_unsupported (tests.test_compatibility.CompatibilityTests.test_foreign_packages_make_conditional_not_unsupported) ... ok
+test_installed_sunshine_is_supported (tests.test_compatibility.CompatibilityTests.test_installed_sunshine_is_supported) ... ok
+test_luks_and_partial_sunshine_are_conditional (tests.test_compatibility.CompatibilityTests.test_luks_and_partial_sunshine_are_conditional) ... ok
+test_no_bootloader_is_blocked (tests.test_compatibility.CompatibilityTests.test_no_bootloader_is_blocked) ... ok
+test_non_arch_distribution_is_blocked (tests.test_compatibility.CompatibilityTests.test_non_arch_distribution_is_blocked) ... ok
+test_non_pacman_is_blocked (tests.test_compatibility.CompatibilityTests.test_non_pacman_is_blocked) ... ok
+test_non_systemd_is_blocked (tests.test_compatibility.CompatibilityTests.test_non_systemd_is_blocked) ... ok
+test_report_is_json_serialisable (tests.test_compatibility.CompatibilityTests.test_report_is_json_serialisable) ... ok
+test_repository_rollback_is_refused (tests.test_compatibility.CompatibilityTests.test_repository_rollback_is_refused) ... ok
+test_same_generation_is_accepted (tests.test_compatibility.CompatibilityTests.test_same_generation_is_accepted) ... ok
+test_strict_policy_rejects_conditional_source (tests.test_compatibility.CompatibilityTests.test_strict_policy_rejects_conditional_source) ... ok
+test_unsupported_architecture_is_blocked (tests.test_compatibility.CompatibilityTests.test_unsupported_architecture_is_blocked) ... ok
+
+----------------------------------------------------------------------
+Ran 33 tests in 0.262s
+
+OK
