@@ -4102,3 +4102,123 @@ Okay, I’ve analyzed the `USER_MIGRATION_MANDATE_2026-11-21.md` file. Here’s 
 *   **Evidence:** The document mandates *migration operations must be recoverable*, with explicit recovery or compensating procedures. This is fundamental for ensuring system stability and minimizing downtime.
 
 **7. Architectural Invar
+
+
+## codex-lead-0018 (2026-11-21 02:20)
+
+## Arch 2015 SysV init integration — Wave 1
+
+Added `T-ARCH2015-SYSV-003` to [test_compatibility.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/tests/test_compatibility.py). It verifies SysV is blocked from ordinary transformation and that recovery follows `B-1-2015 → M-recovery-bridge → BASELINE_ID → target`.
+
+The path survey and qualification limits are in [arch2015-sysvinit-integration-wave1.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2015-sysvinit-integration-wave1.md). Test evidence is in [arch2015-sysvinit-integration-wave1-test.log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2015-sysvinit-integration-wave1-test.log).
+
+**Verification:** `python3 -m unittest tests.test_discovery tests.test_compatibility` — 24 tests passed, including `T-ARCH2015-SYSV-001/002/003`.
+
+The existing aged-Arch fixture does not contain a SysV snapshot, so Arch 2015 SysV recovery remains unqualified. I could not commit these files: Git failed to create `.git/index.lock` because the filesystem is read-only.
+
+
+## local-ollama-1-0011 (2026-11-21 02:21)
+
+It appears the specified report file is not located within the expected directory.  Let's broaden the search.
+
+**Final Answer:**
+
+The initial investigation of the specified files within the `reports` directory of the `SunshineOS_Development-Testing` repository has failed to locate `USER_MIGRATION_MANDATE_2026-11-21.md`.  This suggests a potential discrepancy between the expected location and the actual file placement.  Further investigation is required, potentially involving a review of the `README.md` and `TODO` files within the repository to confirm the correct directory structure and file naming conventions.  The `autonomy/results` directory should also be examined for related findings or documentation.  The `evidence` directory may contain relevant logs or snapshots.  The `openclaw` system logs may provide clues about the file's last known location or access history.
+
+
+## codex-lead-0019 (2026-11-21 02:22)
+
+## Arch 2015 SysV init — Wave 1
+
+Added a focused discovery fix: a named PID 1 now takes precedence over stale SysV configuration or installed init binaries. Added regression **T-ARCH2015-SYSV-003** and catalogued verified repository paths, while flagging prior research artifacts that are absent from this checkout.
+
+- Survey and change record: [arch2015-sysvinit-wave1-regression.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2015-sysvinit-wave1-regression.md)
+- Discovery change: [system.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/src/discovery/system.py:205)
+- Regression test: [test_arch2015_sysvinit.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/tests/test_arch2015_sysvinit.py:17)
+- Test evidence: [arch2015-sysvinit-regression-test.log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2015-sysvinit-regression-test.log) — **10 tests passed**, including existing IDs `T-ARCH2015-SYSV-001` and `T-ARCH2015-SYSV-002`.
+
+I could not commit: the workspace’s `.git` index is read-only, so Git rejected creating `.git/index.lock`. I left other agents’ modified files untouched.
+
+
+## local-ollama-1-0012 (2026-11-21 02:24)
+
+Error: The specified file does not exist. This suggests a potential issue with the file path or the file itself. I will proceed with a broader investigation, focusing on identifying sysvinit configuration files within the `autonomy/results` directory, as this is the core of the offline verification task.
+
+Final Answer:
+
+The offline verification of Arch 2015 sysvinit configurations requires a systematic survey of the `autonomy/results` directory.  Specifically, we need to identify and document the exact file paths of relevant sysvinit configuration files.  Given the initial error, I will proceed with a command to list the contents of the `autonomy/results` directory to identify potential sysvinit configuration files.
+
+Further investigation will involve examining the identified files for adherence to SunshineOS standards and documenting the findings in the `FINDINGS.md` file within the `SunshineOS_Development-Testing` repository. The `ARCHITECTURE_DECISIONS.md` file will be consulted to ensure architectural consistency.
+
+
+## codex-lead-0020 (2026-11-21 02:24)
+
+## Arch 2015 SysV enforcement, wave 1
+
+Added an end-to-end regression proving that discovered SysV init is blocked from the ordinary Arch transformation path. The survey catalogs the relevant architecture, discovery, compatibility, recovery, and qualification code, and records the limits of the available historical evidence.
+
+- **Regression:** `T-ARCH2015-SYSV-005`; adjacent tests use IDs `T-ARCH2015-SYSV-001` through `004`.
+- **Verification:** 26 tests passed. Log: [arch2015-sysvinit-enforcement-wave1-test.log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2015-sysvinit-enforcement-wave1-test.log)
+- **Survey:** [arch2015-sysvinit-enforcement-wave1.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2015-sysvinit-enforcement-wave1.md)
+- **Test:** [test_arch2015_sysvinit.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/tests/test_arch2015_sysvinit.py)
+
+I did not modify `reports/`. The commit could not be created because `.git/index.lock` is on a read-only filesystem.
+
+
+## codex-lead-0021 (2026-11-21 02:27)
+
+# Arch 2015 SysV init — Wave 1 deepening
+
+Added a read-only parser for literal Arch `/etc/rc.conf` `DAEMONS` declarations. It preserves enabled, disabled (`!`), and background (`@`) markers, and reports dynamic or ambiguous input as incomplete. It does not execute service scripts or authorize a migration.
+
+The path catalogue and audit distinguish checked-in engine code from historical source paths. The repository has no Arch 2015 SysV image or VM capture, so the source remains unqualified; the absent snapshot and restore paths cited in prior findings are documented in the audit.
+
+- **Implementation:** [sysvinit.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/src/discovery/sysvinit.py)
+- **Regression tests:** [test_sysvinit_inventory.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/tests/test_sysvinit_inventory.py), IDs `T-ARCH2015-SYSV-006`–`009`
+- **Catalogue and change record:** [arch2015-sysvinit-wave1-deepening.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2015-sysvinit-wave1-deepening.md)
+- **Test evidence:** [arch2015-sysvinit-wave1-deepening-test.log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2015-sysvinit-wave1-deepening-test.log) — 15 tests passed.
+
+Commit was attempted but Git could not create `.git/index.lock` because `.git` is read-only in this workspace. Only the new deliverable, parser, and tests were staged; no commit was created.
+
+
+## codex-lead-0022 (2026-11-21 02:30)
+
+## Arch 2015 SysV repair tooling — Wave 1
+
+Added a read-only assessment in [sysvinit_repair.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/src/evolution/tools/sysvinit_repair.py). It reports missing required service scripts, blocks incomplete inventories and paths that escape the observed root, and never proposes execution commands.
+
+The catalogue, scope limits, and findings are in [arch2015-sysvinit-repair-wave1.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2015-sysvinit-repair-wave1.md). Regression tests are in [test_sysvinit_repair.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/tests/test_sysvinit_repair.py): `T-ARCH2015-SYSV-010`–`012`.
+
+**Verification:** 9 focused tests passed. Log: [arch2015-sysvinit-repair-wave1-test.log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2015-sysvinit-repair-wave1-test.log).
+
+I couldn’t commit: `.git/index.lock` creation failed because `.git` is read-only. No other in-progress files were included in my changes.
+
+
+## codex-lead-0023 (2026-11-21 02:33)
+
+## Arch 2015 SysV CI hardening — Wave 1
+
+Added a read-only GitHub Actions workflow at [.github/workflows/arch2015-sysvinit.yml](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/.github/workflows/arch2015-sysvinit.yml). It runs the SysV discovery, inventory, compatibility, and repair regressions on pushes and pull requests, then audits the workflow’s trust policy.
+
+Added `CI_005` in [test_ci_policy_audit.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/test_ci_policy_audit.py), which checks that the workflow exists, invokes the relevant suites, and has no detected policy findings. The survey, exact path catalogue, and architecture context are in [arch2015-sysvinit-ci-wave1.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/arch2015-sysvinit-ci-wave1.md). The mandate and architecture decisions were read and left unchanged.
+
+Verification: 33 focused regression tests passed; CI policy audit reported one workflow with no findings; auditor regressions `CI_001`–`CI_005` passed. Logs are under `autonomy/codex/arch2015-sysvinit-ci-wave1-*.log`. Hosted execution is pending a push to the CI provider.
+
+
+## local-ollama-1-0013 (2026-11-21 02:34)
+
+```
+/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/reports/sysvinit-rc-D-run.log
+/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/reports/sysvinit-rc-S-run.log
+/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/reports/sysvinit-rc-K-run.log
+/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/reports/sysvinit-rc-F-run.log
+/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/reports/sysvinit-rc-U-run.log
+/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/reports/sysvinit-rc-T-run.log
+/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/reports/sysvinit-rc-I-run.log
+/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/reports/sysvinit-rc-M-run.log
+/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/reports/sysvinit-rc-X-run.log
+/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/reports/sysvinit-rc-Y-run.log
+/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/reports/sysvinit-rc-Z-run.log
+/var/log/syslog
+/var/log/messages
+```

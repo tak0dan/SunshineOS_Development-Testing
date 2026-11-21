@@ -50,3 +50,7 @@
 - 2026-11-21 02:14:47 cycle 121: {"done": 172, "failed": 7, "pending": 14, "retry": 260, "running": 2}; idle refilled: []
 
 - 2026-11-21 02:19:52 cycle 136: {"done": 175, "failed": 7, "pending": 14, "retry": 279, "running": 1}; idle refilled: ['local-ollama-1']
+
+- 2026-11-21 02:25:03 cycle 151: {"done": 180, "failed": 7, "pending": 14, "retry": 312, "running": 1}; idle refilled: ['codex-lead']
+
+- 2026-11-21 02:30:13 cycle 166: {"done": 182, "failed": 7, "pending": 14, "retry": 342, "running": 1}; idle refilled: ['codex-lead']
