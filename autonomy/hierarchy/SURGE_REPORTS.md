@@ -4412,3 +4412,40 @@ Survey findings, exact ISO and repository paths, limitations, and test IDs are i
 **Verification:** `python3 -m unittest tests.test_compatibility tests.test_discovery` — 27 tests passed. Log: [endeavouros-wave1-test.log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/endeavouros-wave1-test.log).
 
 **Commit:** Not created. The managed workspace has read-only `.git`; Git could not create `.git/index.lock`. No files were staged.
+
+
+## codex-lead-0034 (2026-11-21 03:09)
+
+## EndeavourOS Wave 1 audit
+
+Verified the existing EndeavourOS integration and catalogued its source and engine paths in [the audit]( /home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/endeavouros-wave1-deepening-audit.md ). Test output and ISO metadata are recorded in [the evidence log]( /home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/endeavouros-wave1-deepening-audit-test.log ).
+
+The focused discovery and compatibility run passed **27 tests**, including `T-ENDEAVOUR-COMP-001`, `T-ENDEAVOUR-COMP-002`, and `T-ENDEAVOUR-DISC-001`. The audit identifies the missing EndeavourOS source-matrix fixture as a gap: current evidence supports conditional preflight, not end-to-end migration qualification.
+
+No source code was changed; the existing implementation predates this audit. I could not commit the two audit files because `.git/index.lock` creation was rejected: `.git` is read-only in this workspace.
+
+
+## codex-lead-0035 (2026-11-21 03:12)
+
+## EndeavourOS Wave 1 regression deepening
+
+Hardened `evolution-engine/src/target/compatibility.py` so EndeavourOS lineage evidence is accepted only when the `system.os-release` observation is `CONFIGURED`. Added regression cases in `evolution-engine/tests/test_compatibility.py` for stale evidence and exact `ID_LIKE` token matching.
+
+The survey and exact path catalogue are in [the deliverable](</home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/endeavouros-wave1-regression-deepening.md>). Tests `T-ENDEAVOUR-COMP-001`–`004` and `T-ENDEAVOUR-DISC-001` passed: **29 tests**. Evidence is in [the test log](</home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/endeavouros-wave1-regression-deepening-test.log>).
+
+The full EndeavourOS source-matrix migration qualification remains outstanding. I could not commit: Git could not create `.git/index.lock` because the index filesystem is read-only. I left the changes in the working tree and did not stage other work.
+
+
+## codex-lead-0036 (2026-11-21 03:16)
+
+# EndeavourOS architecture enforcement — Wave 1
+
+Added an EndeavourOS fixture to the source matrix. It verifies that observed `ID_LIKE=arch` qualifies the source as **conditional**, then exercises the shared matrix’s discovery, planning, apply, and repeat-apply checks. This improves fixture-based enforcement; it does not establish real-host migration qualification.
+
+The findings and exact-path catalogue are in [the change summary](</home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/endeavouros-wave1-architecture-enforcement.md>). The regression output is in [the test log](</home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/endeavouros-wave1-architecture-enforcement-test.log>).
+
+Changed the fixture and matrix in [fixtures.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/src/fixtures.py), [source-matrix.toml](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/tests/source-matrix.toml), [test_source_matrix.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/tests/test_source_matrix.py), and `evolution-engine/fixtures/endeavouros/etc/os-release`.
+
+**Regression:** `python3 -m unittest tests.test_source_matrix tests.test_compatibility tests.test_discovery` — 35 tests passed. Relevant IDs: `T-ENDEAVOUR-MATRIX-001`, `T-ENDEAVOUR-COMP-001`–`004`, and `T-ENDEAVOUR-DISC-001`.
+
+**Commit:** Not created. `git add` could not create `.git/index.lock` because the Git index is read-only.

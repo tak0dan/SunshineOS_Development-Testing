@@ -1,0 +1,13 @@
+Regression evidence — 2026-11-21
+
+$ cd evolution-engine && python3 -m unittest tests.test_discovery tests.test_compatibility tests.test_source_matrix
+Ran 37 tests in 3.216s
+OK
+
+$ cd evolution-engine && python3 -m unittest discover -s tests
+Ran 234 tests in 14.544s
+OK
+
+Relevant new tests: T-ENDEAVOUR-PKG-001, T-ENDEAVOUR-PKG-002.
+Focused output was emitted by unittest as 37 dots followed by the summary.
+Full suite output was emitted by unittest as 234 dots followed by the summary.
