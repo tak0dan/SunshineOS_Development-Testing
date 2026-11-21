@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "source": {
+    "repository": "garuda-toolbox",
+    "revision": "430de5bc5356468318a5c677d8b2f6d2c4565a75",
+    "checkout": "/home/tak_0/.local/state/sunshine-orchestrator/iso/repos/garuda-toolbox"
+  },
+  "invariants": ["M-01", "M-04", "M-05", "M-06", "M-09", "M-10"],
+  "findings": [
+    {
+      "id": "GARUDA-TOOLBOX-001",
+      "category": "maintenance-ui",
+      "source_paths": ["packages/renderer/src/app/components/maintenance/maintenance.component.ts"],
+      "observed_pattern": "Maintenance actions are presented as categorized UI actions, with task execution and privileged-action metadata.",
+      "verdict": "ADAPT",
+      "controls": ["plan-before-mutation", "journal-operation", "verify-postcondition", "compensate-on-failure"],
+      "invariants": ["M-01", "M-05", "M-06", "M-09"]
+    },
+    {
+      "id": "GARUDA-TOOLBOX-002",
+      "category": "snapshot-recovery",
+      "source_paths": ["packages/renderer/src/app/components/maintenance/maintenance.component.ts", "packages/renderer/src/app/components/boot-repair/boot-repair.service.ts"],
+      "observed_pattern": "UI offers Snapper/Btrfs Assistant paths and boot repair flows; these depend on filesystem and boot state and are not universally available.",
+      "verdict": "ADAPT",
+      "controls": ["plan-before-mutation", "journal-operation", "verify-postcondition", "capability-check-btrfs", "exclude-home-by-default", "checkpoint-before-change", "verify-boot-target"],
+      "invariants": ["M-04", "M-05", "M-06", "M-10"]
+    },
+    {
+      "id": "GARUDA-TOOLBOX-003",
+      "category": "package-maintenance",
+      "source_paths": ["packages/renderer/src/app/components/maintenance/maintenance.component.ts", "packages/renderer/src/app/components/system-status/system-status.component.ts"],
+      "observed_pattern": "Maintenance commands include pacman operations; at least one path uses --noconfirm and an orphan-removal loop.",
+      "verdict": "AVOID",
+      "controls": ["never-auto-confirm-destructive-package-removal", "resolve-and-display-transaction", "require-transaction-journal", "check-package-database-lock-owner"],
+      "invariants": ["M-01", "M-05", "M-06", "M-09"]
+    },
+    {
+      "id": "GARUDA-TOOLBOX-004",
+      "category": "repository-and-keyring-repair",
+      "source_paths": ["packages/renderer/src/app/components/maintenance/maintenance.component.ts"],
+      "observed_pattern": "Separate actions exist for mirror/repository repair and pacman key refresh; they may alter repository trust and configuration.",
+      "verdict": "ADAPT",
+      "controls": ["plan-before-mutation", "journal-operation", "verify-postcondition", "preserve-config-before-repair", "verify-signer-and-revocation-policy", "no-key-trust-on-refresh-failure", "report-exact-result"],
+      "invariants": ["M-02", "M-05", "M-06", "M-07"]
+    },
+    {
+      "id": "GARUDA-TOOLBOX-005",
+      "category": "command-boundary",
+      "source_paths": ["packages/main/src/modules/ShellModule.ts", "packages/renderer/src/app/components/maintenance/maintenance.component.ts"],
+      "observed_pattern": "The UI delegates shell processes through a main-process shell module; maintenance definitions include shell command strings.",
+      "verdict": "ADAPT",
+      "controls": ["plan-before-mutation", "journal-operation", "verify-postcondition", "typed-argv-api", "allowlisted-operation-id", "no-shell-interpolation", "least-privilege-helper"],
+      "invariants": ["M-04", "M-06"]
+    }
+  ]
+}
