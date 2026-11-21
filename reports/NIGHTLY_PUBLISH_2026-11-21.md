@@ -2,14 +2,14 @@
 
 ## Scope
 
-This record covers verified work from the autonomous run during `2026-11-21 00:17:03` through `2026-11-21 08:51:56`, with a final state snapshot at `2026-11-21 10:42:26`. It is generated from `backlog2.json`, `results/`, `hierarchy/`, `qc/`, `logs/orchestrator.log`, `autonomy/SUPERVISION_LOG.md`, and `iso/manifest.json`. No credential material is included.
+This record covers verified work from the autonomous run during `2026-11-21 00:17:03` through `2026-11-21 08:51:56`, with a final state snapshot at `2026-11-21 10:42:26`. It is generated from `backlog2.json`, `results/`, `hierarchy/`, `qc/`, `logs/orchestrator.log`, `autonomy/SUPERVISION_LOG.md`, and the run-local ISO/research manifest snapshot (not retained in this repository). No credential material is included.
 
 ## Queue and cumulative state
 
 - Queue: **1,124** tasks — done 248, retry 837, pending 15, failed 23, running 1.
 - Cumulative log events: ASSIGN 12,028 · RETRY 11,346 · DONE 248 · FAIL 407 · QUALITY-GATE 15 · PUBLISHED 93.
 - All 11,346 `RETRY` events are recorded as `rate limit, key rotated`. The literal string `429` appears 3 times only inside `DONE ... (NNNN chars)` counts, not as HTTP-status events.
-- Research corpus: 6 ISOs and 6 repositories recorded in `iso/manifest.json`; finished `2026-11-21T00:55:11.828344`.
+- Research corpus: 6 ISOs and 6 repositories recorded in the run-local manifest snapshot (not retained in this repository); finished `2026-11-21T00:55:11.828344`.
 - Artifacts: 270 result files, 248 hierarchy files, 19 `qc-*` result files, and 0 transitional files in `qc/`.
 - `autonomy/TEAM_CHAT.md`: 1,009 lines.
 

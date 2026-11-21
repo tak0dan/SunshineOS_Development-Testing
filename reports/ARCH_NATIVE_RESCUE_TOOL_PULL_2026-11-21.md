@@ -47,9 +47,14 @@ upgrade/migration, signed Stage A gates.
 
 - `evolution-engine/src/evolution/tools/arch_rescue.py` — fail-closed native
   assessor with Windows counterparts recorded on every finding.
+- `evolution-engine/src/engine.py` — first-class read-only `--rescue` mode that
+  accepts captured evidence and never executes probes or repairs.
+- `evolution-engine/src/evolution/updater.py` — automatic major-release migration
+  planning inside the ordinary update path; no separate ordinary migration entry.
 - `evolution-engine/src/evolution/tools/__init__.py` — public engine exports.
 - `iso/tools/sunshine_live.py` — collects native probes, embeds assessment in
-  `repair`/`report`, and adds read-only `sunshine-rescue`.
+  `repair`/`report`, adds read-only `sunshine-rescue`, and includes automatic
+  evolution migration in `update`.
 - `iso/tools/stage_profile.py` — generates the `sunshine-rescue` wrapper and
   includes it in build metadata.
 - `iso/profile/sunshine/profiledef.sh` — file metadata for the wrapper.
@@ -69,9 +74,10 @@ lock deletion was removed from every code path.
 Run from the repository root:
 
 - `python3 -m unittest discover -s evolution-engine/tests -p 'test_*.py'` —
-  **325 tests OK**.
-- `python3 -m unittest discover -s iso/tests -p 'test_*.py'` — **30 tests OK**.
-- Focused native rescue tests: 7 engine tests OK.
+  **339 tests OK**.
+- `python3 -m unittest discover -s iso/tests -p 'test_*.py'` — **34 tests OK**.
+- Focused suites: 7 native rescue tests, 10 first-class `--rescue` CLI tests and
+  4 automatic-migration tests OK.
 - Focused provenance test: `test_CAT_007` verifies all 10 pinned source hashes.
 - `shellcheck iso/build.sh iso/verify.sh iso/tools/sunshine-live iso/profile/sunshine/profiledef.sh` — clean.
 - `python3 autonomy/codex/ci_policy_audit.py .` — `WORKFLOWS: 6`,
@@ -91,7 +97,9 @@ live toolkit now uses the supported `-t single` snapshot type for both listing
 and creation.
 
 These are source and staged-profile checks. The rebuilt image produced by CI after
-this change is recorded separately in `reports/ISO_ARTIFACT_2026-11-21.md`.
+this change is run `44937532208`, commit `b8488fba4509fef29f459b6805880507c0377189`,
+SHA-256 `bf6f16279b8c89022d267f3c9fe1d21775db0d1e13f69a3e14e2450bac3ae035`, and is
+recorded in `reports/ISO_ARTIFACT_2026-11-21.md`.
 
 ## Limits
 

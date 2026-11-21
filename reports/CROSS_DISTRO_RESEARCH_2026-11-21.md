@@ -361,11 +361,11 @@ P25. SSU/USP transition: push SSU as packages at update stack, verify chain.
 Laptop machine: 8 CPUs, 15 GB RAM, ~75 GB free disk, VirtualBox + VBoxManage available (could host VMs where practical).
 ### ISO acquisition status
 - **Windows 11 ISO** (x64): obtain from https://www.microsoft.com/en/software-download/windows11 (x64; Arm64 via software-download/windows11arm64); multi-edition ISO, verify via download checksum; ISO ≈ 6.5 GB — download deferred by time budget; facts verified via MS site + releasebot.io + Petri + michaelspice.net + MS KBs (KB5127648 etc.). Also aka.ms/win11iso probed (now redirects to bing — use MS site path).
-- **Obarun ISOs**: https://web.obarun.org/download → redirect: https://web.obarun.org/latest/minimal/ → https://cloud.server.obarun.org/iso/2026.11.01/obarun-2026.11.01-x86_64.iso (1,421,330,432 bytes, live-confirmed via VM (research-obarun) — "BIOS: Booting from CD-ROM..." in VBox.log). Minimal + JWM live ISOs (root/oblive user, root/toor) documented on wiki page.
-- **EndeavourOS ISOs**: https://mirrors.urbanwave.co.za/endeavouros/iso/EndeavourOS_Titan-Nova-2026.08.15.iso (3,898,638,336 bytes; sha512 verified: 3f83bd745e9d5d518bdf6fc9a24092fb5347da449a6e109c6572bf999097b8b548...; torrent + other mirrors via endeavorsos.com/download/). VM research-endeavouros validated via VBox.log ("BIOS: Booting from CD-ROM...").
+- **Obarun ISOs**: https://web.obarun.org/download → redirect: https://web.obarun.org/latest/minimal/ → https://cloud.server.obarun.org/iso/2026.11.01/obarun-2026.11.01-x86_64.iso (1,421,330,432 bytes; VBox.log for VM `research-obarun` shows the BIOS starting CD boot). Minimal + JWM live ISOs (root/oblive user, root/toor) documented on wiki page.
+- **EndeavourOS ISOs**: https://mirrors.urbanwave.co.za/endeavouros/iso/EndeavourOS_Titan-Nova-2026.08.15.iso (3,898,638,336 bytes; sha512 verified: 3f83bd745e9d5d518bdf6fc9a24092fb5347da449a6e109c6572bf999097b8b548...; torrent + other mirrors via endeavorsos.com/download/). VBox.log for VM `research-endeavouros` shows the BIOS starting CD boot.
 - **Garuda/Artix/CachyOS ISOs**: wiki/download pages probed (garudalinux.org/download — JS shell, no ISO hrefs; garudalinux.org/dl/ — CDN-shielded links, resolves to homepage; iso.garudalinux.org, mirror.rznet.fr/garuda/iso/ — unreachable; artixlinux.org/download/ — 403, artixlinux.org/iso/ — 403, wiki.artixlinux.org/wiki/Download — 503; cachyos.org/dl/, cachyos.org/downloads/ — JS shells). ISO URLs not located; ISO availability noted as "CDN-shielded / not publicly listed" per CDNs; ISO downloads not executed (time budget).
 - ISO hosting observed: EndeavourOS 2025.11 (Ganymede).
-- **VM validation status (no visual console read — image input unsupported in this env; validated via VBox.log)**: Arch 2015 (md5 ✓) boots: "BIOS: Booting from CD-ROM..." observed (VM research-arch2015, State: running). Obarun 2026.11.01 (ISO down) boots: "BIOS: Booting from CD-ROM..." observed (VM research-obarun, State: running). EndeavourOS Titan-Nova 2026.08.15 (sha512 ✓) boots: "BIOS: Booting from CD-ROM..." observed (VM research-endeavouros, State: running). See §13 next actions for remaining VM goals.
+- **VM status (log-based only; no visual console read in this environment)**: VBox.log for `research-arch2015` (md5 ✓), `research-obarun` (2026.11.01) and `research-endeavouros` (sha512 ✓) records "BIOS: Booting from CD-ROM..." for each VM, and each VM was reported as running. This proves the BIOS selected the optical device; it does **not** by itself prove the live desktop or shell loaded. See §13 next actions for remaining VM goals.
 
 ### Investigation notes (methods)
 - Iteratively tightened Wikipedia + official repos; iterative navigation on wiki.archlinux.org, wiki.obarun.org, wiki.garudalinux.org, wiki.cachyos.org, omarchy.org/manual, DISTROWATCH links.
@@ -388,14 +388,14 @@ Laptop machine: 8 CPUs, 15 GB RAM, ~75 GB free disk, VirtualBox + VBoxManage ava
 | 2026-11-21 ~13:00 | Omarchy research | 4 channels, 1-month mirror |
 | 2026-11-21 ~13:30 | SteamOS research | A/B RAUC, read-only, keeplist |
 | 2026-11-21 ~14:00 | Windows 11 + ISO probing | SSU→USP, WinSxS, CBS, ISO status |
-| 2026-11-21 ~14:40 | Polish Omarchy/SteamOS/Windows sections, commit CROSS_DISTRO_RESEARCH_2026-11-21.md → DevTesting development | Pushed b629f4e |
-| 2026-11-21 ~15:10 | Obarun VM (research-obarun) validated — VBox.log shows "BIOS: Booting from CD-ROM..." (State: running) | VM validates Obarun 2026.11.01 live boot |
-| 2026-11-21 ~15:40 | EndeavourOS ISO verified (sha512 ✓) + VM research-endeavouros validated ("BIOS: Booting from CD-ROM...") | 3 VMs running: Arch2015, Obarun, EndeavourOS |
+| 2026-11-21 ~14:40 | Polish Omarchy/SteamOS/Windows sections, commit CROSS_DISTRO_RESEARCH_2026-11-21.md → DevTesting development | Pushed b629f4e (historical); current development tip is b8488fb |
+| 2026-11-21 ~15:10 | Obarun VM (research-obarun) log checked — VBox.log shows "BIOS: Booting from CD-ROM..." (State: running) | BIOS selected optical device; live boot not independently confirmed |
+| 2026-11-21 ~15:40 | EndeavourOS ISO verified (sha512 ✓) + VBox.log for research-endeavouros checked ("BIOS: Booting from CD-ROM...") | 3 VMs running: Arch2015, Obarun, EndeavourOS (log-based only) |
 
 ## 13. Next checkpoints & Actions (per standing responsibilities)
 
 1. Pull all three repos at next checkpoint.
-2. Follow-up reports: (a) design-proposal writeup; (b) Obarun live VM boot validation check (done — log-based); (c) EndefferOS/Garuda/Artix ISO/VM validation if time.
+2. Follow-up reports: (a) design-proposal writeup; (b) Obarun optical-boot log check (done — log-based only); (c) EndeavourOS/Garuda/Artix ISO/VM validation if time.
 3. Add capability checks/migration knowledge to evolution-engine — **only after review** (via PR/commit on DevTesting).
 4. Continue to 20-min cadence checkpoints; recheck crashes, field, re-search.
 
@@ -491,30 +491,30 @@ When migrations into evolution-engine are reviewed, these concrete capability ch
 - SteamOS: RAUC slot activation w/ boot success check; keeplist diff comparison.
 - Garuda: snapper prune heuristics + grub-btrfsd watchdog.
 - Windows: CBS-verified restore health before milestone commit.
-EOF
+
 ## Appendix D — VM Validation Notes
 
-Visual console read was not possible in this environment (this model has no image input). Validation = ISO verification + VBox.log boot evidence + VM State + artifacts in /tmp/opencode/vms.
+Visual console read was not possible in this environment (this model has no image input). Validation = ISO verification + VBox.log optical-boot evidence + VM State + artifacts in /tmp/opencode/vms. This is not a claim that the live desktop or shell fully loaded.
 
 ### VM research-arch2015 (Arch 2015.07.01)
 - ISO: /tmp/opencode/isos/archlinux-2015.07.01-dual.iso (677,380,096 bytes) — md5 ✓ 957232076cd0b32083a702b1b2e77796 (matches archive.archlinux.org/iso/2015.07.01/md5sums.txt).
 - Attached to IDE port 1 (storagectl --add ide --bootable=on, disk IDE port 0); startvm headless.
-- VBox.log: "VMMDev: Guest Log: BIOS: Boot : bseqnr=1, bootseq=0023", "VMMDev: Guest Log: BIOS: Booting from CD-ROM..." — booted.
+- VBox.log: "VMMDev: Guest Log: BIOS: Boot : bseqnr=1, bootseq=0023", "VMMDev: Guest Log: BIOS: Booting from CD-ROM..." — BIOS selected CD boot; live shell not confirmed.
 - State: running.
 
 ### VM research-obarun (Obarun 2026.11.01)
 - ISO: /tmp/opencode/isos/obarun-2026.11.01-x86_64.iso (1,421,330,432 bytes) — downloaded from https://web.obarun.org/latest/minimal/ redirect → https://cloud.server.obarun.org/iso/2026.11.01/obarun-2026.11.01-x86_64.iso.
 - Attached; startvm headless.
-- VBox.log: "VMMDev: Guest Log: BIOS: Boot : bseqnr=1, bootseq=0023", "VMMDev: Guest Log: BIOS: Booting from CD-ROM..." — booted.
+- VBox.log: "VMMDev: Guest Log: BIOS: Boot : bseqnr=1, bootseq=0023", "VMMDev: Guest Log: BIOS: Booting from CD-ROM..." — BIOS selected CD boot; live shell not confirmed.
 - State: running.
 
 ### VM research-endeavouros (EndeavourOS Titan-Nova 2026.08.15)
 - ISO: /tmp/opencode/isos/endeavouros-titan-nova-2026.08.15.iso (3,898,638,336 bytes; sha512 verified vs mirrors' .sha512sum: 3f83bd745e9d5d518bdf6fc9a24092fb5347da449a6e109c6572bf999097b8b548...).
 - Attached to IDE port 1; startvm headless.
-- VBox.log: "VMMDev: Guest Log: BIOS: Booting from CD-ROM..." — booted.
+- VBox.log: "VMMDev: Guest Log: BIOS: Booting from CD-ROM..." — BIOS selected CD boot; live shell not confirmed.
 - State: running.
 
 ### VM error sweeps
 - Arch2015 VM: no error/fail/panic entries in VBox.log (grep -v Xcpt).
 - Obarun VM: no error/fail/panic entries in VBox.log (grep -v Xcpt).
-- EOS VM: guest log shows dp-svga-x11 X11 protocol errors ("BadValue") at boot — console/display artifacts (no display attached), not fatal to boot; boot evidence stands ("BIOS: Booting from CD-ROM..." observed).
+- EOS VM: guest log shows dp-svga-x11 X11 protocol errors ("BadValue") at boot — console/display artifacts (no display attached); the only boot evidence remains "BIOS: Booting from CD-ROM...", so live shell loading is not confirmed.
