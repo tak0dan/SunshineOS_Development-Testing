@@ -97,7 +97,7 @@ list rather than pretending an ISO was produced.
 
 ## Verification already run
 
-- `python3 -m unittest discover -s iso/tests -p 'test_*.py' -v` — 28 tests OK.
+- `python3 -m unittest discover -s iso/tests -p 'test_*.py' -v` — 29 tests OK.
 - `python3 -m unittest discover -s evolution-engine/tests -p 'test_*.py' -v` — 325 tests OK.
 - `shellcheck iso/build.sh iso/verify.sh iso/tools/sunshine-live iso/profile/sunshine/profiledef.sh`
 - `./iso/build.sh --check` — staged profile validated, no missing files, profiledef syntax OK.

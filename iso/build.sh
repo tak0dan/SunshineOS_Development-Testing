@@ -39,6 +39,10 @@ else
 fi
 
 log "staging profile"
+if [ -z "${SUNSHINE_SOURCE_COMMIT:-}" ] && [ -n "${GITHUB_SHA:-}" ]; then
+    SUNSHINE_SOURCE_COMMIT="$GITHUB_SHA"
+    export SUNSHINE_SOURCE_COMMIT
+fi
 if [ -z "${SUNSHINE_SOURCE_COMMIT:-}" ]; then
     SUNSHINE_SOURCE_COMMIT=$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)
     export SUNSHINE_SOURCE_COMMIT

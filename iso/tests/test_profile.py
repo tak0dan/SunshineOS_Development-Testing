@@ -38,8 +38,11 @@ class ProfileTests(unittest.TestCase):
         dropin = PROFILE / "airootfs/etc/systemd/system/serial-getty@.service.d/10-autologin.conf"
         self.assertTrue(dropin.is_file())
         self.assertIn("--autologin root", dropin.read_text())
-        profiledef = (PROFILE / "profiledef.sh").read_text()
-        self.assertIn('kernel_params="systemd.firstboot=no"', profiledef)
+        for path in (PROFILE / "syslinux/archiso_sys-linux.cfg",
+                     PROFILE / "efiboot/loader/entries/01-sunshine-linux.conf"):
+            text = path.read_text()
+            self.assertIn("systemd.firstboot=no", text, path)
+            self.assertIn("console=ttyS0,115200n8", text, path)
 
     def test_pacman_configurations_declare_architecture(self):
         for path in (PROFILE / "pacman.conf", PROFILE / "airootfs/etc/pacman.conf"):

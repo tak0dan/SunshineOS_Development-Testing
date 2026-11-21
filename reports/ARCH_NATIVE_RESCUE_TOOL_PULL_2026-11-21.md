@@ -70,7 +70,7 @@ Run from the repository root:
 
 - `python3 -m unittest discover -s evolution-engine/tests -p 'test_*.py'` —
   **325 tests OK**.
-- `python3 -m unittest discover -s iso/tests -p 'test_*.py'` — **28 tests OK**.
+- `python3 -m unittest discover -s iso/tests -p 'test_*.py'` — **29 tests OK**.
 - Focused native rescue tests: 7 engine tests OK.
 - Focused provenance test: `test_CAT_007` verifies all 10 pinned source hashes.
 - `shellcheck iso/build.sh iso/verify.sh iso/tools/sunshine-live iso/profile/sunshine/profiledef.sh` — clean.
@@ -78,6 +78,14 @@ Run from the repository root:
   `RESULT: NO_DETECTED_POLICY_FINDINGS`.
 - `bash iso/build.sh --check --skip-tests` — staged profile validated, no missing
   files, `profiledef.sh` syntax OK, `sunshine-rescue` wrapper generated.
+
+### Artifact-driven corrections
+
+Artifact inspection found that the archiso `%KERNEL_PARAMS%` substitution did not
+carry `systemd.firstboot=no` or the serial console into the generated boot entries.
+The boot configs now declare those parameters literally, so the generated BIOS and
+UEFI entries are self-contained. The same inspection found empty `source_commit`
+metadata in CI; staging now prefers `GITHUB_SHA` and falls back to local git.
 
 These are source and staged-profile checks. The rebuilt image produced by CI after
 this change is recorded separately in `reports/ISO_ARTIFACT_2026-11-21.md`.

@@ -88,7 +88,8 @@ def stage(repo: Path, profile_src: Path, staged: Path, *, build_id: str = "") ->
         if source.is_file():
             shutil.copy2(source, doc_dst / name)
 
-    head = os.environ.get("SUNSHINE_SOURCE_COMMIT", "")
+    head = (os.environ.get("SUNSHINE_SOURCE_COMMIT", "")
+            or os.environ.get("GITHUB_SHA", ""))
     if not head:
         try:
             head = subprocess.run(

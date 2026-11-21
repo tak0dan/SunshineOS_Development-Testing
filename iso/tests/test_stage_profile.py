@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "iso" / "tools"))
@@ -34,6 +35,16 @@ class StageProfileTests(unittest.TestCase):
             self.assertEqual(info["build_id"], "test-build")
             self.assertEqual(info["commands"], [f"sunshine-{n}" for n in stage_profile.SUBCOMMANDS])
             self.assertFalse(any(p.name == "__pycache__" for p in staged.rglob("*")))
+
+    def test_build_metadata_uses_github_sha_when_git_is_unavailable(self):
+        sha = "0123456789abcdef0123456789abcdef01234567"
+        with tempfile.TemporaryDirectory() as tmp:
+            staged = Path(tmp) / "staged"
+            with patch.dict(os.environ, {"GITHUB_SHA": sha, "SUNSHINE_SOURCE_COMMIT": ""}):
+                stage_profile.stage(REPO, REPO / "iso/profile/sunshine", staged,
+                                    build_id="test-build")
+            info = json.loads((staged / "airootfs/usr/share/sunshine/BUILD_INFO.json").read_text())
+            self.assertEqual(info["source_commit"], sha)
 
     def test_engine_target_package_is_staged(self):
         with tempfile.TemporaryDirectory() as tmp:
