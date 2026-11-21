@@ -4748,3 +4748,60 @@ Added a SHA-256-verifiable catalogue of nine CachyOS source files, with exact pa
 Command from `evolution-engine/`: `python3 -m unittest tests/test_research_catalog.py -v` — **5 tests passed**. Hash verification matched all nine files in the cached CachyOS checkout.
 
 I could not commit: Git staging failed because `.git/index.lock` is on a read-only filesystem.
+
+
+## codex-lead-0057 (2026-11-21 04:36)
+
+# Omarchy development leadership — Wave 1
+
+**Implemented:** `MigrationJournal.verify_completed_outputs` in [journal_state.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/src/evolution/journal_state.py). It checks completed operation hashes against freshly observed outputs and reports missing or mismatched evidence.
+
+The change addresses a documented rollback gap: Omarchy snapshots restore the root filesystem but not `/home`, so per-user migration markers may survive after the changes they describe have been rolled back. The survey and exact upstream paths are recorded in [omarchy-wave1.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/omarchy-wave1.md). Upstream references include [`manual/47-system-snapshots.md`](https://github.com/basecamp/omarchy/blob/quattro/manual/47-system-snapshots.md), [`docs/update-process.md`](https://github.com/basecamp/omarchy/blob/quattro/docs/update-process.md), and [`manual/30-updates.md`](https://github.com/basecamp/omarchy/blob/quattro/manual/30-updates.md).
+
+Regression tests are in [test_omarchy_recovery_consistency.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/tests/test_omarchy_recovery_consistency.py): **OMR-001** checks matching and changed output hashes; **OMR-002** checks missing observations and missing recorded hashes.
+
+**Verification:** `cd evolution-engine && python3 -m unittest tests.test_omarchy_recovery_consistency` — 2 tests passed.
+
+The survey remains branch-view research: a pinned upstream commit and local source snapshot were unavailable, so these findings are not yet hash-verified catalog evidence. The check is not yet wired into a global recovery coordinator; callers must supply hashes from fresh discovery.
+
+Task notes and logs are under [autonomy/pull/codex-lead-0057](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/pull/codex-lead-0057). I could not commit: the repository’s `.git` index is read-only, and `git add` failed with “Unable to create …/.git/index.lock: Read-only file system.” The source file also had pre-existing unstaged changes, which I left out of the task notes.
+
+
+## codex-lead-0058 (2026-11-21 04:40)
+
+## Omarchy integration — Wave 2
+
+Updated migration resume so it skips a completed operation only when a fresh, high-confidence probe confirms the expected state. Missing, inconclusive, or mismatched probes now trigger reconciliation and rerun, addressing stale completion markers after root snapshot rollback.
+
+- **Code:** [executor.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/src/executor/executor.py)
+- **Regression:** **OMR-003** in [test_executor.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/tests/test_executor.py); existing OMR-001 and OMR-002 remain in `test_omarchy_recovery_consistency.py`.
+- **Omarchy survey and catalogue:** [omarchy-wave2.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/omarchy-wave2.md). Upstream references are branch-view findings; source is not pinned to a commit.
+- **Task notes and logs:** [autonomy/pull/codex-lead-0058](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/pull/codex-lead-0058).
+
+**Verification:** `cd evolution-engine && python3 -m unittest tests.test_omarchy_recovery_consistency tests.test_executor` — 19 tests passed.
+
+I could not commit: `git add` failed because `.git/index.lock` cannot be created on the read-only index.
+
+
+## codex-lead-0059 (2026-11-21 04:44)
+
+## Omarchy regression survey — Wave 1
+
+Catalogued six Omarchy source files from cached commit `e4635a4eea887d5c8dbd70427386f570c37a2a61`. The survey records exact paths, findings, and SunshineOS regression controls in [omarchy-regression-wave1.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/omarchy-regression-wave1.md). The pinned source records are in [omarchy-update-recovery-wave1.json](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/fixtures/research/omarchy-update-recovery-wave1.json).
+
+Added **CAT_006** in [test_research_catalog.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/tests/test_research_catalog.py), checking the catalogue’s project, commit, source paths, and schema.
+
+**Verification:** From `evolution-engine/`, ran `python3 -m unittest tests.test_research_catalog -v` — **6 tests passed**. The six source hashes also matched the cached checkout. Logs: [test output](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/omarchy-regression-wave1-test.log) and [hash evidence](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/omarchy-regression-wave1-source-hashes.log). Pull notes are in [codex-lead-omarchy-regression-0001](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/pull/codex-lead-omarchy-regression-0001/).
+
+I could not commit: `git add` failed because `.git/index.lock` could not be created; `.git` is read-only in this workspace.
+
+
+## codex-lead-0060 (2026-11-21 04:47)
+
+## Omarchy architecture enforcement — Wave 2
+
+Added **OMR-004** in [test_omarchy_recovery_consistency.py](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/evolution-engine/tests/test_omarchy_recovery_consistency.py). It checks that the pinned Omarchy catalogue retains controls for per-user migration markers, bypassable package updates, snapshot rollback, configuration ownership, and advisory notifications.
+
+The exact upstream paths, findings, and SunshineOS controls are recorded in [omarchy-architecture-wave2.md](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/omarchy-architecture-wave2.md). Pull notes are in [codex-lead-omarchy-architecture-wave2](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/pull/codex-lead-omarchy-architecture-wave2/).
+
+**Verification:** From `evolution-engine/`, ran `python3 -m unittest tests.test_omarchy_recovery_consistency -v` — 3 tests passed. Output: [test log](/home/tak_0/sunshineos-audit/SunshineOS_Development-Testing/autonomy/codex/omarchy-architecture-wave2-test.log).

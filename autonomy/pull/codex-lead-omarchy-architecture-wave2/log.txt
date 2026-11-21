@@ -1,0 +1,2 @@
+2026-11-21: Inspected migration mandate, architecture decision map, prior Omarchy survey, research fixture, and journal verification path.
+2026-11-21: Added OMR_004 regression and ran targeted unittest suite (3 tests, pass).
