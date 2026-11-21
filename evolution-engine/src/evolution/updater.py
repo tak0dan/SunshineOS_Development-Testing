@@ -140,6 +140,17 @@ class EvolutionUpdater:
             })
             return report
 
+        # A journal records what happened; it cannot restore system state.
+        # Never begin a mutating migration unless the caller has provided both
+        # sides of the recovery contract.  This check is intentionally after
+        # dry-run planning so offline plan review remains possible.
+        if self.checkpoint_fn is None or self.restore_fn is None:
+            report.ok = False
+            report.error = (
+                "recoverable execution requires both checkpoint and restore backends"
+            )
+            return report
+
         checkpoint_ref = ""
         try:
             journal.transition("Planning", "chain resolved")
@@ -147,11 +158,10 @@ class EvolutionUpdater:
             self._check_execution_preconditions(milestones)
             report.steps.append({"phase": "Preconditions", "detail": "validated"})
             journal.transition("Prepared", "checkpoint requested")
-            if self.checkpoint_fn is not None:
-                checkpoint_ref = self.checkpoint_fn()
-                journal.add_checkpoint(checkpoint_ref)
-            else:
-                journal.add_checkpoint("journal-only", "checkpoint")
+            checkpoint_ref = str(self.checkpoint_fn() or "").strip()
+            if not checkpoint_ref:
+                raise RuntimeError("checkpoint backend returned an empty reference")
+            journal.add_checkpoint(checkpoint_ref)
             journal.transition("Executing", "apply transformation")
 
             for milestone in milestones:
