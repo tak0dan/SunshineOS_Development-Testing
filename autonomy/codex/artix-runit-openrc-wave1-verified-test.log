@@ -1,0 +1,12 @@
+$ cd evolution-engine && python3 -m unittest tests.test_artix_services -v
+test_ARTIX_SVC_001_openrc_enable_orders_runlevel_before_start ... ok
+test_ARTIX_SVC_002_runit_requires_observed_activation_path ... ok
+test_ARTIX_SVC_003_unqualified_or_injected_paths_fail_closed ... ok
+test_ARTIX_SVC_004_package_owned_runit_definition_is_not_removed ... ok
+
+Ran 4 tests in 0.001s
+OK
+
+$ cd evolution-engine && python3 -m unittest discover -s tests
+Ran 169 tests in 12.195s
+OK
