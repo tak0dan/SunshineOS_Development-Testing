@@ -26,7 +26,7 @@ _VALIDATION = re.compile(
 )
 
 
-def audit_boot_generation_script(source: str, context_lines: int = 12) -> tuple[Finding, ...]:
+def audit_boot_generation_script(source: str, context_lines: int = 16) -> tuple[Finding, ...]:
     """Find suppressed boot-image generation without a nearby validation.
 
     A validation is accepted only in the same logical window as the suppressed
