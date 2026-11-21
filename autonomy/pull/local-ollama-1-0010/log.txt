@@ -1,0 +1,6 @@
+[task.claimed] local-ollama-1-0010 pending attempt=0 local-ollama-1 / evidence checking / Artix runit/openrc
+[attempt.started] local-ollama-1-0010 running attempt=1 local-ollama-1 / evidence checking / Artix runit/openrc
+[task.succeeded] local-ollama-1-0010 done attempt=1 local-ollama-1 / evidence checking / Artix runit/openrc
+    Okay, I’ve analyzed the `USER_MIGRATION_MANDATE_2026-11-21.md` file. Here’s the compiled evidence, focusing on the architectural decisions and the core migration model invariants as outlined within the document.
+local-ollama-1-0010: done after 1 attempt(s)
+
