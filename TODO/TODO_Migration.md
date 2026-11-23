@@ -891,6 +891,50 @@ If a setting prevents safe transformation, report the blocker and explain what n
 
 Do not silently delete it.
 
+## **6.4 Sunshine packages must yield to mainstream package-manager packages**
+
+Sunshine's base package set should install the packages required for a working system, while allowing a user-installed package from pacman repositories or the AUR (through yay, paru, or another helper) to take ownership cleanly. For example, if `sunshine-base` currently supplies `sunshine-store` and the user installs the mainstream AUR `sunshine-store`, the Sunshine package must not overwrite its files on the next update.
+
+- Maintain a single package mapping for Sunshine-supplied packages and their mainstream Arch/AUR counterparts; include every match, not only `sunshine-store`.
+- Detect when a mainstream package is installed and transfer ownership safely: remove or stop shipping the duplicate Sunshine-owned payload, preserve user data and configuration, and leave the mainstream package installed as the owner.
+- On subsequent Sunshine updates, do not reinstall, replace, or overwrite a package already handed off to pacman/AUR ownership. Let the normal package manager update it from its mainstream source.
+- Keep required base dependencies available when no mainstream equivalent exists; package-source detection and handoff must be explicit, idempotent, and recorded for diagnostics.
+- Test initial installation, AUR/pacman takeover, repeated Sunshine updates, removal of the mainstream package, and recovery when no upstream package is available.
+
+## **6.5 Review and optimize `sunshine-update`**
+
+Review the complete update flow and run it in a disposable test system. Record timings per step, identify unnecessary repeated work or long waits, and improve the slow steps without weakening package signature, dependency, transaction, or post-update validation.
+
+- Add clear per-stage timing and progress so long-running work is attributable and diagnosable.
+- Test normal updates, no-op updates, network/repository failures, interrupted runs, and recovery in a disposable VM or container; do not use the user's live system as the destructive test target.
+- When an update fails specifically because the Sunshine repository signing key is missing or untrusted, support a bounded recovery path that fetches the key, verifies its full fingerprint against a pinned Sunshine repository identity, locally signs it, and retries the Sunshine repository operation.
+- Scope key retrieval and local signing strictly to the essential `[sunshine]` repository. Never apply this fallback to Arch, AUR, or other third-party repositories, and fail closed if the fingerprint cannot be verified.
+- Test valid, missing, mismatched, expired, and unavailable key cases, confirming that no unverified key is trusted and non-Sunshine repository trust is unchanged.
+
+## **6.6 Filesystem-aware snapshot hooks and separately owned snapshot tools**
+
+Snapshot hooks must select one backend from the detected filesystem and its validated configuration. The current mismatch—Timeshift snapshot attempts on Btrfs while Snapper is absent or unconfigured—can leave updates without a usable recovery point or make a transaction fail partway through.
+
+- Include preconfigured Timeshift and Snapper packages in the ISO so the installed system has the appropriate snapshot tool available from first boot.
+- Include and preconfigure the matching graphical management tools in the ISO as well: a GUI for Snapper/Btrfs (such as Btrfs Assistant) on Btrfs, and the appropriate Timeshift GUI on supported non-Btrfs filesystems. Configure the GUI to use the same backend and snapshot layout written by the installer; do not expose a second backend or misleading controls.
+- Keep both tools out of `sunshine-base` ownership/dependencies. Track them in the external/mainstream package mapping and AUR takeover list so an available mainstream AUR package can own and receive updates through paru (or another AUR helper) without Sunshine overwriting it.
+- Detect the root filesystem and snapshot layout at install and update time. For Btrfs, install and configure Snapper for the correct subvolume/layout and run only the Snapper hooks. For supported non-Btrfs filesystems, configure and use Timeshift only when its selected snapshot mode is valid.
+- Never run both backends for the same transaction. If the filesystem, tool, or configuration does not support a safe snapshot, report that clearly and follow an explicit no-snapshot recovery policy; do not claim that a snapshot was created.
+- Make pre-transaction and post-transaction hooks idempotent, check snapshot creation and retention results, and ensure a hook failure has a defined effect on whether the package transaction may proceed.
+- Test Btrfs with Snapper, non-Btrfs with Timeshift, missing or invalid configuration, mainstream/AUR package takeover, and update failure/rollback paths in disposable systems.
+- Have the installer write one explicit snapshot-backend setting (for example, `snapper` or `timeshift`) after filesystem detection and tool configuration. `sunshine-update` and every package hook must read that setting and invoke only the selected backend; they must not independently guess from installed packages or run both tools. Reject or safely disable snapshot operations when the setting is absent, unsupported, or inconsistent with the filesystem.
+
+## **6.7 Research and rebuild the Arch-family maintenance toolbox**
+
+Use Garuda's toolbox as the primary behavioral and source reference, then inspect relevant tools and ideas from EndeavourOS, CachyOS, and Obarun. Reimplement the chosen behavior for Sunshine OS; do not ship or invoke distro-specific packages, repositories, signing keys, commands, or service assumptions from those distributions.
+
+- Fetch and archive the upstream source/revisions for the Garuda toolbox and the selected EndeavourOS, CachyOS, and Obarun tools so their behavior can be reviewed and attributed.
+- Preserve the approachable interaction model: discoverable submenus, queueable maintenance actions, visible queue order, and sequential execution with understandable progress and results. Users should be able to queue tasks such as cache cleanup, system update, mirror refresh, and pacman key verification, then review the queue before running it.
+- Adapt the interface and visual design to Sunshine OS. Keep Sunshine-specific repository, package, trust, snapshot, and recovery behavior in the implementation.
+- Compare repair workflows and hooks: use Garuda as the main usability reference, assess EndeavourOS security practices, and evaluate CachyOS performance and maintenance ideas. Inspect Obarun's declarative service tools and how they work internally; adopt only compatible concepts after documenting service-manager assumptions.
+- Build a source and feature matrix, trace security-sensitive operations (especially repository setup, key retrieval/signing, privilege boundaries, and package transactions), and document which ideas are adopted, changed, or rejected with reasons.
+- Do not copy upstream code blindly. Track licenses and attribution, review dependencies, remove distro-specific behavior, and test the Sunshine adaptation in disposable Arch-family VMs.
+
 # **7. Kernel and boot transformation from pure Arch**
 
 A pure Arch installation may already have a working kernel and bootloader, but Sunshine must not assume that their configuration satisfies its target.
